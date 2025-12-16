@@ -1,0 +1,15 @@
+{
+  "Amberley Vail": {
+    "lvl": 3,
+    "str": 3,
+    "dex": 2,
+    "cha": 0,
+    "wis": 4,
+    "con": 4,
+    "int": 0,
+    "modifiers": [
+      "Dueling",
+      "Divine Strike"
+    ]
+  }
+}
