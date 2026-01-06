@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import json
 import os
+import inspect
 from collections import defaultdict
 
 # Import the new system modules (assumes they are in the same project)
@@ -10,11 +11,17 @@ from character import Character
 from attack_context import AttackContext
 
 # Import available weapon class_files (adjust names as necessary)
-# I include the ones you showed in your sample; modify or add entries to weapon_mapping below if needed.
-from weapon_files import Greatsword, Longbow, Longsword, Warhammer
-from weapon_files.damage_modifiers import Dueling, GreatWeaponFighting, Sharpshooter, GreatWeaponMaster, Archery, DivineStrike
+from weapon_files import *
+from weapon_files.damage_modifiers import *
 
 CHAR_FILE = "characters.json"
+
+def all_subclasses(cls):
+    result = set()
+    for sub in cls.__subclasses__():
+        result.add(sub)
+        result.update(all_subclasses(sub))
+    return result
 
 class MinimalDNDGUI:
     def __init__(self, master):
@@ -22,14 +29,22 @@ class MinimalDNDGUI:
         self.master.title("Minimal DND Expected Damage GUI")
         self.master.geometry("620x600")
 
-        self.available_modifiers = {
-            "Great Weapon Fighting": {"category": "Fighting Style", "obj": GreatWeaponFighting},
-            "Dueling": {"category": "Fighting Style", "obj": Dueling},
-            "Archery": {"category": "Fighting Style", "obj": Archery},
-            "Sharpshooter": {"category": "Feat", "obj": Sharpshooter},
-            "Great Weapon Master": {"category": "Feat", "obj": GreatWeaponMaster},
-            "Divine Strike": {"category": "Class Feature", "obj": DivineStrike},
+        self.weapon_mapping = {
+            cls.gui_name if hasattr(cls, "gui_name") else cls.__name__: cls
+            for cls in all_subclasses(Weapon)
+            if not inspect.isabstract(cls)
         }
+
+        self.modifier_mapping = {
+            cls.__name__: cls
+            for cls in DamageModifier.__subclasses__()
+        }
+
+        mod_by_cat = defaultdict(list)
+
+        for name, cls in self.modifier_mapping.items():
+            mod_by_cat[getattr(cls, "category", "Other")].append(name)
+
         self.modifier_vars = {}
 
         # In-memory characters: {name: {str:..., dex:..., cha:..., prof:...}}
@@ -62,8 +77,8 @@ class MinimalDNDGUI:
 
         # --- Row 0: Weapon & Spell ---
         tk.Label(middle_frame, text="Select Weapon:").grid(row=0, column=0, sticky="w")
-        self.weapon_var = tk.StringVar(value="Longsword")
-        weapon_choices = ["Longsword", "Greatsword", "Longbow", "Warhammer"]
+        self.weapon_var = tk.StringVar(value="None")
+        weapon_choices = ["None"] + sorted(self.weapon_mapping.keys())
         self.weapon_menu = tk.OptionMenu(middle_frame, self.weapon_var, *weapon_choices)
         self.weapon_menu.grid(row=0, column=1, sticky="w", padx=6)
 
@@ -80,7 +95,7 @@ class MinimalDNDGUI:
 
         tk.Label(middle_frame, text="Magic Bonus:").grid(row=1, column=2, sticky="w", pady=(8, 0), padx=(20, 0))
         self.magic_entry = tk.Entry(middle_frame, width=8)
-        self.magic_entry.insert(0, "0")
+        self.magic_entry.insert(0, "")
         self.magic_entry.grid(row=1, column=3, sticky="w", pady=(8, 0), padx=6)
 
         # --- Row 2: Stat Selection ---
@@ -118,9 +133,6 @@ class MinimalDNDGUI:
 
         self.refresh_character_listbox()
 
-    # -------------------------
-    # Character persistence
-    # -------------------------
     def load_characters_from_file(self):
         if os.path.exists(CHAR_FILE):
             try:
@@ -138,9 +150,6 @@ class MinimalDNDGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save characters: {e}")
 
-    # -------------------------
-    # Character CRUD windows
-    # -------------------------
     def open_create_window(self):
         self.open_character_window(is_edit=False)
 
@@ -193,17 +202,13 @@ class MinimalDNDGUI:
         int_entry = tk.Entry(win)
         int_entry.grid(row=3, column=3, padx=6, pady=2)
 
-        # -------------------
-        # Modifiers checkboxes
-        # -------------------
         modifier_vars_local = {}
         # Group modifiers by category
         mod_by_cat = defaultdict(list)
-        for name, info in self.available_modifiers.items():
-            category = info.get("category", "Other")
-            mod_by_cat[category].append(name)
+        for name, cls in self.modifier_mapping.items():
+            mod_by_cat[cls.category].append(name)
 
-        category_order = ["Fighting Style", "Feat", "Class Feature", "Other"]
+        category_order = ["FightingStyle", "Feat", "ClassFeature", "Other"]
         row_offset = 8
         for cat in category_order:
             mods = mod_by_cat.get(cat, [])
@@ -325,9 +330,6 @@ class MinimalDNDGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to export: {e}")
 
-    # -------------------------
-    # Run expected damage
-    # -------------------------
     def run_expected_damage(self):
         sel = self.character_listbox.curselection()
         if not sel:
@@ -356,17 +358,21 @@ class MinimalDNDGUI:
 
         char_obj.clear_modifiers()
         for mod_name in char_data.get("modifiers", []):
-            if mod_name in self.available_modifiers:
-                modifier_class = self.available_modifiers[mod_name]["obj"]
+            modifier_class = self.modifier_mapping.get(mod_name)
+            if modifier_class:
                 char_obj.add_modifier(modifier_class)
 
         # Build AttackContext
         stat = self.stat_var.get()
-        try:
-            magic_bonus = int(self.magic_entry.get().strip())
-        except ValueError:
-            messagebox.showerror("Error", "Magic Bonus must be an integer.")
-            return
+        magic_str = self.magic_entry.get().strip()
+        if magic_str == "":
+            magic_bonus = 0
+        else:
+            try:
+                magic_bonus = int(magic_str)
+            except ValueError:
+                messagebox.showerror("Error", "Magic Bonus must be an integer.")
+                return
 
         ctx = AttackContext(
             stat=stat,
@@ -383,12 +389,7 @@ class MinimalDNDGUI:
             return
 
         weapon_name = self.weapon_var.get()
-        weapon_mapping = {
-            "Longsword": Longsword,
-            "Greatsword": Greatsword,
-            "Longbow": Longbow,
-            "Warhammer": Warhammer,
-        }
+        weapon_mapping = self.weapon_mapping
 
         # Spell placeholder
         if self.spell_var.get() != "None":

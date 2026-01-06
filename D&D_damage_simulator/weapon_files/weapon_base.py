@@ -30,10 +30,11 @@ def hit_probabilities(ac, to_hit_bonus):
 class Weapon(ABC):
     default_mastery = []
 
-    def __init__(self, owner, name, weapon_type, dice_type):
+    def __init__(self, owner, name, weapon_type, damage_type, dice_type):
         self.owner = owner
         self.name = name
         self.weapon_type = weapon_type
+        self.damage_type = damage_type
         self.dice_type = dice_type
 
     def expected_damage(self, ac, context):
@@ -83,11 +84,11 @@ class Weapon(ABC):
     def __str__(self):
         pass
 
-class VersatileWeapon(Weapon):
+class VersatileWeapon(Weapon, ABC):
     default_mastery = []
 
-    def __init__(self, owner, name, base_dice="1d8"):
-        super().__init__(owner, name, "Versatile", base_dice)
+    def __init__(self, owner, name, damage_type, base_dice="1d8"):
+        super().__init__(owner, name, "Versatile", damage_type, base_dice)
         self.base_dice = base_dice
         self.dmg = 0
         self.supports_sneak_attack = False
@@ -97,5 +98,6 @@ class VersatileWeapon(Weapon):
             return "1d10"
         return self.base_dice
 
+    @abstractmethod
     def __str__(self):
-        return f"{self.name} ({self.weapon_type}): {self.dice_type} damage"
+        pass

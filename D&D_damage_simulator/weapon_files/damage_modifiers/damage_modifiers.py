@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
 class DamageModifier:
+    category = "Unnamed Category"
+
     def modify_attack_bonus(self, weapon, bonus, context, **kwargs):
         return bonus
 

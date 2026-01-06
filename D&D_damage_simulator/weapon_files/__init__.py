@@ -3,7 +3,8 @@ from .greatsword import Greatsword
 from .longbow import Longbow
 from .longsword import Longsword
 from .warhammer import Warhammer
-from .damage_modifiers import DamageModifier, WeaponMasteryGraze, Sharpshooter, DivineStrike, Dueling, Archery, GreatWeaponMaster, GreatWeaponFighting
+from .dagger import Dagger
+from .damage_modifiers import *
 
 __all__ = [
     "Weapon",
@@ -11,12 +12,18 @@ __all__ = [
     "Longbow",
     "Longsword",
     "Warhammer",
+    "Dagger",
     "DamageModifier",
     "WeaponMasteryGraze",
+    "WeaponMasteryNick",
     "Sharpshooter",
     "DivineStrike",
     "Dueling",
     "Archery",
     "GreatWeaponFighting",
-    "GreatWeaponMaster"
+    "GreatWeaponMaster",
+    "Rage",
+    "HuntersMark",
+    "SneakAttack",
+    "PrimalStrike"
 ]
