@@ -1,6 +1,8 @@
 from .damage_modifiers import DamageModifier
 
 class Sharpshooter(DamageModifier):
+    category = "Feat"
+
     def modify_attack_bonus(self, weapon, bonus, context, **kwargs):
         return bonus-5
 
@@ -10,6 +12,8 @@ class Sharpshooter(DamageModifier):
         return damage
 
 class GreatWeaponMaster(DamageModifier):
+    category = "Feat"
+
     def modify_attack_bonus(self, weapon, bonus, context, **kwargs):
         return bonus-5
 

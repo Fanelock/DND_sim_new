@@ -7,8 +7,10 @@ __all__ = [
     "Longbow",
     "Longsword",
     "Warhammer",
+    "Dagger",
     "DamageModifier",
     "WeaponMasteryGraze",
+    "WeaponMasteryNick",
     "Archery",
     "Dueling",
     "DivineStrike",
@@ -17,5 +19,9 @@ __all__ = [
     "Sharpshooter",
     "BaseClass",
     "BaseSubclass",
-    "Cleric"
+    "Cleric",
+    "HuntersMark",
+    "Rage",
+    "PrimalStrike",
+    "SneakAttack"
 ]
