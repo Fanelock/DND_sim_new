@@ -1,6 +1,6 @@
 from .weapon_base import VersatileWeapon
 from .damage_modifiers import DamageModifier
-from .damage_modifiers.fighting_styles import GreatWeaponFighting
+
 
 class Longsword(VersatileWeapon):
     default_mastery = []
