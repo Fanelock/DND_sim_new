@@ -1,29 +1,11 @@
-from .weapon_base import Weapon
-from .greatsword import Greatsword
-from .longbow import Longbow
-from .longsword import Longsword
-from .warhammer import Warhammer
-from .dagger import Dagger
-from .damage_modifiers import *
+import pkgutil
+import importlib
+import inspect
 
-__all__ = [
-    "Weapon",
-    "Greatsword",
-    "Longbow",
-    "Longsword",
-    "Warhammer",
-    "Dagger",
-    "DamageModifier",
-    "WeaponMasteryGraze",
-    "WeaponMasteryNick",
-    "Sharpshooter",
-    "DivineStrike",
-    "Dueling",
-    "Archery",
-    "GreatWeaponFighting",
-    "GreatWeaponMaster",
-    "Rage",
-    "HuntersMark",
-    "SneakAttack",
-    "PrimalStrike"
-]
+for _, module_name, _ in pkgutil.iter_modules(__path__):
+    importlib.import_module(f"{__name__}.{module_name}")
+
+from . import damage_modifiers
+from .weapon_base import Weapon
+
+__all__ = ["Weapon", "damage_modifiers"]

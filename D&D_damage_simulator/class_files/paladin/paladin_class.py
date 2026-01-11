@@ -2,13 +2,12 @@ from class_files.base_class import BaseClass
 from class_files.base_subclass import BaseSubclass
 from weapon_files.damage_modifiers import class_features
 
-class Cleric(BaseClass):
-    name = "Cleric"
+class Paladin(BaseClass):
+    name = "Paladin"
 
     def get_features(self):
         mods = []
 
-        if self.character.lvl >= 8:
-            mods.append(class_features.DivineStrike)
+        mods.append(class_features.Multiattack)
 
         return mods
