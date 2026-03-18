@@ -1,3 +1,4 @@
+from abc import ABC
 from locale import locale_alias
 
 from class_files.fighter.fighter_class import Fighter
@@ -8,6 +9,7 @@ class DivineStrike(DamageModifier):
     category = "Class Feature"
     gui_name = "Divine Strike"
     priority = 50
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit and weapon.owner.lvl > 6:
@@ -21,6 +23,7 @@ class HuntersMark(DamageModifier):
     category = "Class Feature Manual"
     gui_name = "Hunter's Mark"
     priority = 10
+    applies_to_spell = True
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit:
@@ -34,6 +37,7 @@ class Rage(DamageModifier):
     category = "Class Feature"
     gui_name = "Rage"
     priority = 10
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit:
@@ -44,6 +48,7 @@ class SneakAttack(DamageModifier):
     category = "Class Feature"
     gui_name = "Sneak Attack"
     priority = 50
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if not getattr(context, "allow_sneak", True):
@@ -60,6 +65,7 @@ class PrimalStrike(DamageModifier):
     category = "Class Feature"
     gui_name = "Primal Strike"
     priority = 50
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit and weapon.owner.lvl > 6:
@@ -73,6 +79,7 @@ class DivineSmite(DamageModifier):
     category = "Class Feature Manual"
     gui_name = "Divine Smite"
     priority = 50
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit:
@@ -83,9 +90,10 @@ class DivineSmite(DamageModifier):
         return damage
 
 class AgonizingBlast(DamageModifier):
-    category = "Class Feature"
+    category = "Class Feature Manual"
     gui_name = "Agonizing Blast"
     priority = 10
+    applies_to_spell = True
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit:
@@ -99,6 +107,7 @@ class ThirstingBlade(DamageModifier):
     category = "Class Feature Manual"
     gui_name = "Thirsting Blade"
     priority = 20
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit and weapon.owner.class_.name == "Warlock":
@@ -124,6 +133,7 @@ class Multiattack(DamageModifier):
     category = "Class Feature"
     gui_name = "Multiattack"
     priority = 20
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit and weapon.owner.lvl >= 5:

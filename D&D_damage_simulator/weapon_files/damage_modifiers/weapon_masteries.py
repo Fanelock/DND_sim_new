@@ -4,6 +4,7 @@ class WeaponMasteryGraze(DamageModifier):
     is_mastery = True
     category = "Mastery"
     priority = 10
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit:
@@ -15,6 +16,7 @@ class WeaponMasteryNick(DamageModifier):
     is_mastery = True
     category = "Mastery"
     priority = 100
+    applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         return damage

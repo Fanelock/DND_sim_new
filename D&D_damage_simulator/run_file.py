@@ -1,5 +1,4 @@
 import tkinter as tk
-from glob import magic_check
 from tkinter import filedialog, messagebox
 import json
 import os
@@ -13,9 +12,11 @@ from class_files.base_subclass import BaseSubclass
 
 from character import Character
 from attack_context import AttackContext
+from spell_context import SpellContext
 
 from weapon_files import *
 from weapon_files.damage_modifiers import *
+from spell_files import *
 
 CHAR_FILE = "characters.json"
 
@@ -31,6 +32,10 @@ weapon_package = importlib.import_module("weapon_files")
 for _, module_name, _ in pkgutil.iter_modules(weapon_package.__path__):
     importlib.import_module(f"weapon_files.{module_name}")
 
+spell_package = importlib.import_module("spell_files")
+for _, module_name, _ in pkgutil.iter_modules(spell_package.__path__):
+    importlib.import_module(f"spell_files.{module_name}")
+
 def gather_subclasses(cls):
     result = set()
     for sub in cls.__subclasses__():
@@ -42,6 +47,13 @@ def build_weapon_mapping():
     return {
         cls.gui_name if hasattr(cls, "gui_name") else cls.__name__: cls
         for cls in gather_subclasses(Weapon)
+        if not inspect.isabstract(cls)
+    }
+
+def build_spell_mapping():
+    return {
+        cls.gui_name if hasattr(cls, "gui_name") else cls.__name__: cls
+        for cls in gather_subclasses(Spell)
         if not inspect.isabstract(cls)
     }
 
@@ -78,6 +90,8 @@ class MinimalDNDGUI:
         self.class_mapping = build_class_mapping()
 
         self.subclass_mapping = build_subclass_mapping()
+
+        self.spell_mapping = build_spell_mapping()
 
         mod_by_cat = defaultdict(list)
 
@@ -130,21 +144,22 @@ class MinimalDNDGUI:
 
         tk.Label(middle_frame, text="Select Spell:").grid(row=0, column=2, sticky="w", padx=(20, 0))
         self.spell_var = tk.StringVar(value="None")
-        self.spell_menu = tk.OptionMenu(middle_frame, self.spell_var, "None", "Spell Attack", "Spell Save")
+        spell_choices = ["None"] + sorted(self.spell_mapping.keys())
+        self.spell_menu = tk.OptionMenu(middle_frame,self.spell_var,*spell_choices)
         self.spell_menu.grid(row=0, column=3, sticky="w", padx=6)
 
-        # --- Row 1: Target AC & Magic Bonus ---
+        # --- Row 1: Target AC & Spell Dice ---
         tk.Label(middle_frame, text="Target AC:").grid(row=1, column=0, sticky="w", pady=(8, 0))
         self.ac_entry = tk.Entry(middle_frame, width=8)
         self.ac_entry.insert(0, "15")
         self.ac_entry.grid(row=1, column=1, sticky="w", pady=(8, 0), padx=6)
 
-        tk.Label(middle_frame, text="Magic Bonus:").grid(row=1, column=2, sticky="w", pady=(8, 0), padx=(20, 0))
-        self.magic_entry = tk.Entry(middle_frame, width=8)
-        self.magic_entry.insert(0, "")
-        self.magic_entry.grid(row=1, column=3, sticky="w", pady=(8, 0), padx=6)
+        tk.Label(middle_frame, text="Spell Dice:").grid(row=1, column=2, sticky="w", pady=(8, 0), padx=(20, 0))
+        self.spell_dice_entry = tk.Entry(middle_frame, width=8)
+        self.spell_dice_entry.insert(0, "")
+        self.spell_dice_entry.grid(row=1, column=3, sticky="w", pady=(8, 0), padx=6)
 
-        # --- Row 2: Stat Selection ---
+        # --- Row 2: Stat Selection & Magic bonus ---
         stat_frame = tk.LabelFrame(middle_frame, text="Attack Stat")
         stat_frame.grid(row=2, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
@@ -156,12 +171,22 @@ class MinimalDNDGUI:
         tk.Radiobutton(stat_frame, text="CON", variable=self.stat_var, value="con").grid(row=1, column=1, padx=6, pady=2)
         tk.Radiobutton(stat_frame, text="INT", variable=self.stat_var, value="int").grid(row=1, column=2, padx=6, pady=2)
 
-        # --- Row 3: Mastery & Two-Handed ---
+        tk.Label(middle_frame, text="Magic Bonus:").grid(row=2, column=2, sticky="w", pady=(8, 0), padx=(20, 0))
+        self.magic_entry = tk.Entry(middle_frame, width=8)
+        self.magic_entry.insert(0, "")
+        self.magic_entry.grid(row=2, column=3, sticky="w", pady=(8, 0), padx=6)
+
+        # --- Row 3: Mastery, Two-Handed & Damage Bonus ---
         self.mastery_var = tk.BooleanVar()
         tk.Checkbutton(middle_frame, text="Use Mastery", variable=self.mastery_var).grid(row=3, column=0, sticky="w", pady=(10, 0))
 
         self.twohand_var = tk.BooleanVar()
         tk.Checkbutton(middle_frame, text="Two-Handed", variable=self.twohand_var).grid(row=3, column=1, sticky="w", pady=(10, 0))
+
+        tk.Label(middle_frame, text="Damage bonus:").grid(row=3, column=2, sticky="w", pady=(8, 0), padx=(20, 0))
+        self.damage_bonus_entry = tk.Entry(middle_frame, width=8)
+        self.damage_bonus_entry.insert(0, "")
+        self.damage_bonus_entry.grid(row=3, column=3, sticky="w", pady=(8, 0), padx=6)
 
         # Run simulation / expected damage
         run_frame = tk.Frame(master)
@@ -221,7 +246,7 @@ class MinimalDNDGUI:
         lvl_entry = tk.Entry(win)
         lvl_entry.grid(row=0, column=3, padx=8, pady=2)
 
-        # Row 2: Class & Subclass
+        # Row 1: Class & Subclass
         tk.Label(win, text="Class:").grid(row=1, column=0, sticky="w", padx=8, pady=2)
 
         class_var = tk.StringVar(value="None")
@@ -250,7 +275,7 @@ class MinimalDNDGUI:
 
         class_var.trace_add("write", update_subclass_menu)
 
-        # Row 3: STR & DEX
+        # Row 2: STR & DEX
         tk.Label(win, text="STR modifier:").grid(row=2, column=0, sticky="w", padx=6, pady=2)
         str_entry = tk.Entry(win)
         str_entry.grid(row=2, column=1, padx=6, pady=2)
@@ -259,7 +284,7 @@ class MinimalDNDGUI:
         dex_entry = tk.Entry(win)
         dex_entry.grid(row=2, column=3, padx=6, pady=2)
 
-        # Row 4: CON & INT
+        # Row 3: CON & INT
         tk.Label(win, text="CON modifier:").grid(row=3, column=0, sticky="w", padx=6, pady=2)
         con_entry = tk.Entry(win)
         con_entry.grid(row=3, column=1, padx=6, pady=2)
@@ -268,7 +293,7 @@ class MinimalDNDGUI:
         int_entry = tk.Entry(win)
         int_entry.grid(row=3, column=3, padx=6, pady=2)
 
-        # Row 5: CON & INT
+        # Row 4: CON & INT
         tk.Label(win, text="WIS modifier:").grid(row=4, column=0, sticky="w", padx=6, pady=2)
         wis_entry = tk.Entry(win)
         wis_entry.grid(row=4, column=1, padx=6, pady=2)
@@ -277,8 +302,7 @@ class MinimalDNDGUI:
         cha_entry = tk.Entry(win)
         cha_entry.grid(row=4, column=3, padx=6, pady=2)
 
-        # Row 6: Standard Weapon & Standard Weapon Bonus
-
+        # Row 5: Standard Weapon & Standard Weapon Bonus
         tk.Label(win, text="Standard Weapon:").grid(row=5, column=0, sticky="w", padx=8, pady=2)
         standard_weapon_var = tk.StringVar(value="None")
         standard_weapon_choices = ["None"] + sorted(self.weapon_mapping.keys())
@@ -480,24 +504,41 @@ class MinimalDNDGUI:
 
         # Build AttackContext
         stat = self.stat_var.get()
-        if char_obj.default_weapon_bonus == 0:
-            magic_str = self.magic_entry.get().strip()
-            if magic_str == "":
-                magic_bonus = 0
-            else:
-                try:
-                    magic_bonus = int(magic_str)
-                except ValueError:
-                    messagebox.showerror("Error", "Magic Bonus must be an integer.")
-                    return
+        magic_str = self.magic_entry.get().strip()
+        if magic_str == "":
+            magic_bonus = 0
         else:
-            magic_bonus = char_obj.default_weapon_bonus
+            try:
+                magic_bonus = int(magic_str)
+            except ValueError:
+                messagebox.showerror("Error", "Magic Bonus must be an integer.")
+                return
 
-        ctx = AttackContext(
+        damage_str = self.damage_bonus_entry.get().strip()
+
+        if damage_str == "":
+            damage_bonus = 0
+        else:
+            try:
+                damage_bonus = int(damage_str)
+            except ValueError:
+                messagebox.showerror("Error", "Damage Bonus must be an integer.")
+                return
+
+        a_ctx = AttackContext(
             stat=stat,
             magic_bonus=magic_bonus,
             use_mastery=self.mastery_var.get(),
-            two_handed=self.twohand_var.get()
+            two_handed=self.twohand_var.get(),
+            damage_bonus=damage_bonus
+        )
+
+        dice_str = self.spell_dice_entry.get().strip()
+        s_ctx = SpellContext(
+            stat=stat,
+            magic_bonus=magic_bonus,
+            dice = dice_str,
+            damage_bonus=damage_bonus
         )
 
         # Target AC
@@ -510,9 +551,26 @@ class MinimalDNDGUI:
         weapon_mapping = self.weapon_mapping
         weapon_name = self.weapon_var.get()
 
+        spell_obj = None
+        spell_name = self.spell_var.get()
+
+        # --- Resolve Spell ---
+        if spell_name != "None":
+            spell_class = self.spell_mapping.get(spell_name)
+
+            if spell_class is None:
+                messagebox.showerror(
+                    "Error",
+                    f"Spell '{spell_name}' not found."
+                )
+                return
+
+            spell_obj = spell_class(char_obj)
+
         # --- Resolve weapon ---
         if weapon_name == "Use Character Weapon":
             weapon_obj = char_obj.get_default_weapon(weapon_mapping)
+            a_ctx.magic_bonus = char_obj.default_weapon_bonus
             if weapon_obj is None:
                 messagebox.showerror(
                     "Error",
@@ -529,31 +587,25 @@ class MinimalDNDGUI:
                 return
             weapon_obj = weapon_class(char_obj)
 
-        # Spell placeholder
-        if self.spell_var.get() != "None":
-            messagebox.showinfo(
-                "Spell placeholder",
-                "Spell support is not yet implemented in the backend. "
-                "Select 'None' or add your spell class_files later."
-            )
-            return
-
         # Call expected_damage
         try:
-            result = weapon_obj.expected_damage(ac, ctx)
-            self.last_result = result
+            if spell_name != "None":
+                result = spell_obj.expected_damage(ac, s_ctx)
+                self._current_weapon_obj = None  # prevent weapon display
+            else:
+                result = weapon_obj.expected_damage(ac, a_ctx)
+                self._current_weapon_obj = weapon_obj
 
-            # Save the weapon object so display_result() can show applied modifiers
-            self._current_weapon_obj = weapon_obj
+            self.last_result = result
 
         except Exception as e:
             messagebox.showerror("Error", f"Call to expected_damage failed: {e}")
             return
 
         # Show formatted output
-        self.display_result(result, ac, weapon_name, ctx,  char_obj)
+        self.display_result(result, ac, weapon_name, a_ctx,  char_obj)
 
-    def display_result(self, result, ac, weapon_name, ctx, char_obj):
+    def display_result(self, result, ac, weapon_name, a_ctx, char_obj):
         self.result_text.delete("1.0", tk.END)
 
         weapon_obj = getattr(self, "_current_weapon_obj", None)
@@ -570,6 +622,8 @@ class MinimalDNDGUI:
 
         lines = []
         lines.append(f"Expected damage vs AC {ac}")
+        if weapon_obj is None:
+            lines.insert(1, f"Spell used: {self.spell_var.get()}")
         lines.append("")
 
         lines.append("Expected damage per turn:        (per attack)")
@@ -592,11 +646,11 @@ class MinimalDNDGUI:
                     f"hit={hit:.3f}  crit={crit:.3f}  miss={miss:.3f}"
                 )
 
-        if weapon_obj:
+        if weapon_obj is not None:
             char_mods = getattr(weapon_obj.owner, "modifiers", [])
             applied = [
                 m for m in char_mods
-                if ctx.use_mastery or not getattr(m, "is_mastery", False)
+                if a_ctx.use_mastery or not getattr(m, "is_mastery", False)
             ]
             mod_names = [type(m).gui_name for m in applied]
             lines.append("")
@@ -653,7 +707,6 @@ class MinimalDNDGUI:
 
         text.insert("1.0", "\n".join(lines))
         text.config(state="disabled")
-
 
 def main():
     root = tk.Tk()

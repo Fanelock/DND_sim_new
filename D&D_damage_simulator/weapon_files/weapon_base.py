@@ -18,14 +18,12 @@ def parse_dice(notation):
 def clamp01(x):
     return max(0.0, min(1.0, x))
 
-
 def base_hit_probs(ac, to_hit):
     p_crit = 0.05
     p_hit = clamp01((21 + to_hit - ac) / 20)
     p_normal = max(0.0, p_hit - p_crit)
     p_miss = 1.0 - p_hit
     return p_normal, p_crit, p_miss
-
 
 def adv_hit_probs(ac, to_hit):
     n, c, m = base_hit_probs(ac, to_hit)
@@ -39,7 +37,6 @@ def adv_hit_probs(ac, to_hit):
     # otherwise it's a normal hit
     p_normal = 1 - p_crit - p_miss
     return p_normal, p_crit, p_miss
-
 
 def dis_hit_probs(ac, to_hit):
     n, c, m = base_hit_probs(ac, to_hit)
@@ -89,7 +86,7 @@ class Weapon(ABC):
             self.dice_type = self.get_dice_for_attack(context)
 
         num, die = parse_dice(self.dice_type)
-        normal = num * dice_avg[die] + stat_mod + context.magic_bonus
+        normal = num * dice_avg[die] + stat_mod + context.magic_bonus + context.damage_bonus
         crit = normal + num * dice_avg[die]
         miss = 0
 
@@ -126,8 +123,6 @@ class Weapon(ABC):
             dis_ev += d_n * _normal + d_c * _crit
             normal_ev += n_n * _normal + n_c * _crit
             adv_ev += a_n * _normal + a_c * _crit
-
-
 
         return {
             "num_attacks": num_attacks,
