@@ -23,3 +23,12 @@ class GreatWeaponMaster(DamageModifier):
         if hit:
             return damage + 10
         return damage
+
+class CrossbowExpert(DamageModifier):
+    category = "Feat"
+    gui_name = "CBE"
+
+    def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
+        if hit and weapon.weapon_type == "Ranged, Light":
+            return damage + (3.5 + weapon.owner.get_stat_mod(context.stat))
+        return damage
