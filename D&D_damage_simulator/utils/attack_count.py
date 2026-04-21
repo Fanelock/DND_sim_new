@@ -5,6 +5,7 @@ extra_attack_table = [
     (1,  1),
 ]
 
+
 def fighter_modifier(lvl: int) -> int:
     for min_lvl, attacks in extra_attack_table:
         if lvl >= min_lvl:
