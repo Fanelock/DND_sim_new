@@ -1,7 +1,3 @@
-from abc import ABC
-from locale import locale_alias
-
-from class_files.fighter.fighter_class import Fighter
 from .damage_modifiers import DamageModifier
 import math
 
@@ -101,6 +97,8 @@ class AgonizingBlast(DamageModifier):
         return damage
 
 def warlock_modifier(weapon):
+    if weapon.owner.lvl < 5:
+        return 1
     return 2 if weapon.owner.lvl <= 11 else 3
 
 class ThirstingBlade(DamageModifier):
@@ -110,24 +108,8 @@ class ThirstingBlade(DamageModifier):
     applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
-        if hit and weapon.owner.class_.name == "Warlock":
-            if weapon.owner.lvl >= 5:
-                return damage * warlock_modifier(weapon)
-            return damage
-        return damage
-
-extra_attack_table = {
-    1: 1,   # optional: level 1–4
-    5: 2,   # level 5–10
-    11: 3,  # level 11–19
-    20: 4   # level 20
-}
-
-def fighter_modifier(weapon):
-    for lvl_req in sorted(extra_attack_table, reverse=True):
-        if weapon.owner.lvl >= lvl_req:
-            return extra_attack_table[lvl_req]
-    return 1
+        num_attacks = warlock_modifier(weapon)
+        return damage * num_attacks
 
 class Multiattack(DamageModifier):
     category = "Class Feature"
@@ -136,17 +118,7 @@ class Multiattack(DamageModifier):
     applies_to_spell = False
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
-        if hit and weapon.owner.lvl >= 5:
-            if weapon.owner.class_.name == "Fighter":
-                return damage * fighter_modifier(weapon)
-            return damage * 2
-        return damage
-
-def attack_count(weapon):
-    if weapon.owner.lvl >= 5:
-        if weapon.owner.class_.name == "Fighter":
-            return fighter_modifier(weapon)
-        return 2
-    return 1
+        num_attacks = weapon.owner.class_.get_attack_count(weapon)
+        return damage * num_attacks
 
 

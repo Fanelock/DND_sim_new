@@ -1,4 +1,11 @@
-from class_files import *
+from class_files.base_class import BaseClass
+from class_files.base_subclass import BaseSubclass
+from class_files.fighter.fighter_class import Fighter
+from class_files.warlock.warlock_class import Warlock
+from class_files.ranger.ranger_class import Ranger
+from class_files.paladin.paladin_class import Paladin
+from class_files.rogue.rogue_class import Rogue
+from class_files.cleric.cleric_class import Cleric
 
 class Character:
     def __init__(self, lvl, str_mod, dex_mod, cha_mod, wis_mod, con_mod, int_mod):

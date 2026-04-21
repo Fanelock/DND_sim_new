@@ -2,9 +2,8 @@ import random as rd
 from abc import ABC, abstractmethod
 from .damage_modifiers import DamageModifier
 from .damage_modifiers.class_features import Multiattack, warlock_modifier, ThirstingBlade
-from .damage_modifiers.class_features import fighter_modifier, attack_count
 from .damage_modifiers.fighting_styles import TwoWeaponFighting
-from .damage_modifiers.weapon_masteries import WeaponMasteryGraze
+from .damage_modifiers.weapon_masteries import WeaponMasteryGraze, WeaponMasteryNick
 
 dice_avg = {
     "d4": 2.5, "d6": 3.5, "d8": 4.5,
@@ -97,9 +96,6 @@ class Weapon(ABC):
 
         num_attacks = 1
 
-        if any(isinstance(m, Multiattack) for m in applied_modifiers):
-            num_attacks = attack_count(self)
-
         if any(isinstance(m, TwoWeaponFighting) for m in applied_modifiers):
             num_attacks += 1
 
@@ -117,7 +113,7 @@ class Weapon(ABC):
         normal_ev = n_n * normal + n_c * crit + n_m * miss
         adv_ev = a_n * normal + a_c * crit + a_m * miss
 
-        if any(m.__class__.__name__ == "WeaponMasteryNick" for m in applied_modifiers):
+        if any(isinstance(m, WeaponMasteryNick) for m in applied_modifiers):
             _normal = 2.5 + context.magic_bonus
             _crit = 5 + context.magic_bonus
             dis_ev += d_n * _normal + d_c * _crit
