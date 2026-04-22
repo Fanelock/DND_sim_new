@@ -924,7 +924,8 @@ class MinimalDNDGUI:
             mod_names = [type(m).gui_name for m in applied]
             lines.append("")
             lines.append("Applied modifiers: " + (", ".join(mod_names) if mod_names else "None"))
-            weapon_label = getattr(type(weapon_obj), "gui_name", None) or weapon_obj.name
+            _class_gui = getattr(type(weapon_obj), "gui_name", "")
+            weapon_label = weapon_obj.name if _class_gui == "_custom_" else (_class_gui or weapon_obj.name)
             lines.insert(1, f"Weapon used: {weapon_label}")
 
         self.result_text.insert(tk.END, "\n".join(lines))
