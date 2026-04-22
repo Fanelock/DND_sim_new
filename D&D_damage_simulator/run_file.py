@@ -26,7 +26,7 @@ def _get_data_dir() -> pathlib.Path:
     Returns a persistent, writable directory for app data regardless of
     whether the app is run as a plain script or a PyInstaller .exe.
 
-    Windows : %APPDATA%\DND_sim
+    Windows : %APPDATA%\\DND_sim
     macOS   : ~/Library/Application Support/DND_sim
     Linux   : ~/.local/share/DND_sim
     """
