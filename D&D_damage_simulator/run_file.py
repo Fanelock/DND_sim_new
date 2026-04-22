@@ -70,6 +70,7 @@ def build_weapon_mapping():
         cls.gui_name if hasattr(cls, "gui_name") else cls.__name__: cls
         for cls in gather_subclasses(Weapon)
         if not inspect.isabstract(cls)
+        and getattr(cls, "gui_name", "") != "_custom_"
     }
 
 def build_spell_mapping():
@@ -657,10 +658,25 @@ class MinimalDNDGUI:
             self.save_characters_to_file()
             self.refresh_character_listbox()
 
-    def refresh_character_listbox(self):
+    def refresh_character_listbox(self, reselect=None):
+        """Rebuild the character list. If reselect is given, re-select that name and
+        update the stat radio so it doesn't snap back to the default."""
+        # Remember currently selected name if not told explicitly
+        if reselect is None:
+            sel = self.character_listbox.curselection()
+            reselect = self.character_listbox.get(sel) if sel else None
+
         self.character_listbox.delete(0, tk.END)
-        for name in sorted(self.characters.keys()):
+        names = sorted(self.characters.keys())
+        for name in names:
             self.character_listbox.insert(tk.END, name)
+
+        # Restore selection and re-apply main_stat
+        if reselect and reselect in names:
+            idx = names.index(reselect)
+            self.character_listbox.selection_set(idx)
+            self.character_listbox.see(idx)
+            self._on_character_select()
 
     def import_json(self):
         path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json"), ("All files","*.*")])
