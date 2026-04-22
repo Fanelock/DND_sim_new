@@ -106,12 +106,15 @@ class CustomWeapon(Weapon):
     """
     A runtime-only weapon built from user-supplied parameters.
     Stored in the character JSON as 'custom_weapon'; overrides standard_weapon.
+    mastery_cls: one of WeaponMasteryGraze, WeaponMasteryNick, or None
     """
     gui_name = "_custom_"  # never appears in weapon dropdown
 
-    def __init__(self, owner, name, weapon_type, dice, magic_bonus=0):
+    def __init__(self, owner, name, weapon_type, dice, magic_bonus=0, mastery_cls=None):
         super().__init__(owner, name, weapon_type, "Custom", dice)
         self._magic_bonus = magic_bonus
+        # default_mastery must be a list of classes (same contract as built-in weapons)
+        self.default_mastery = [mastery_cls] if mastery_cls is not None else []
 
     def __str__(self):
         return f"{self.name} ({self.weapon_type}): {self.dice_type}"
@@ -383,8 +386,10 @@ class MinimalDNDGUI:
         custom_weapon_dice_entry = tk.Entry(sep, width=10)
         custom_weapon_dice_entry.grid(row=0, column=3, padx=6, pady=2)
 
-        WEAPON_TYPES = ["Melee", "Light", "Two-Handed", "Ranged", "Ranged, Light",
-                        "Versatile", "Finesse", "Thrown"]
+        # Only these types affect modifier logic:
+        # "Finesse"/"Ranged"/"Light" -> Sneak Attack; "Ranged, Light" -> CBE
+        # "Melee" is the generic fallback for everything else
+        WEAPON_TYPES = ["Melee", "Finesse", "Light", "Ranged", "Ranged, Light"]
         tk.Label(sep, text="Weapon Type:").grid(row=1, column=0, sticky="w", padx=6, pady=2)
         custom_weapon_type_var = tk.StringVar(value="Melee")
         tk.OptionMenu(sep, custom_weapon_type_var, *WEAPON_TYPES).grid(
@@ -394,6 +399,12 @@ class MinimalDNDGUI:
         custom_weapon_bonus_entry = tk.Entry(sep, width=6)
         custom_weapon_bonus_entry.insert(0, "0")
         custom_weapon_bonus_entry.grid(row=1, column=3, padx=6, pady=2)
+
+        tk.Label(sep, text="Mastery:").grid(row=2, column=0, sticky="w", padx=6, pady=2)
+        MASTERY_OPTIONS = ["None", "Graze", "Nick"]
+        custom_weapon_mastery_var = tk.StringVar(value="None")
+        tk.OptionMenu(sep, custom_weapon_mastery_var, *MASTERY_OPTIONS).grid(
+            row=2, column=1, sticky="w", padx=6, pady=2)
 
         # ── Custom Modifiers / Feats section ──────────────────────────────────
         custom_mod_frame = tk.LabelFrame(
@@ -486,6 +497,7 @@ class MinimalDNDGUI:
                 custom_weapon_type_var.set(cw.get("weapon_type", "Melee"))
                 custom_weapon_bonus_entry.delete(0, tk.END)
                 custom_weapon_bonus_entry.insert(0, str(cw.get("magic_bonus", 0)))
+                custom_weapon_mastery_var.set(cw.get("mastery", "None"))
 
             # restore custom modifiers
             for cm in data.get("custom_modifiers", []):
@@ -538,6 +550,7 @@ class MinimalDNDGUI:
                     "dice": cw_dice,
                     "weapon_type": custom_weapon_type_var.get(),
                     "magic_bonus": cw_bonus,
+                    "mastery": custom_weapon_mastery_var.get(),
                 }
             else:
                 custom_weapon_data = {}
@@ -754,12 +767,16 @@ class MinimalDNDGUI:
             cw = char_data.get("custom_weapon", {})
             if cw and cw.get("name") and cw.get("dice"):
                 # Build a CustomWeapon instance
+                from weapon_files.damage_modifiers.weapon_masteries import WeaponMasteryGraze, WeaponMasteryNick
+                _mastery_map = {"Graze": WeaponMasteryGraze, "Nick": WeaponMasteryNick}
+                _mastery_cls = _mastery_map.get(cw.get("mastery", "None"))
                 weapon_obj = CustomWeapon(
                     owner=char_obj,
                     name=cw["name"],
                     weapon_type=cw.get("weapon_type", "Melee"),
                     dice=cw["dice"],
                     magic_bonus=cw.get("magic_bonus", 0),
+                    mastery_cls=_mastery_cls,
                 )
                 a_ctx.magic_bonus = cw.get("magic_bonus", 0)
             else:
