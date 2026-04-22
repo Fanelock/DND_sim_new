@@ -408,6 +408,7 @@ class MinimalDNDGUI:
 
         tk.Label(inner, text="Standard Weapon Bonus:").grid(row=5, column=2, sticky="w", padx=8, pady=2)
         standard_weapon_bonus_entry = tk.Entry(inner)
+        standard_weapon_bonus_entry.insert(0, "0")
         standard_weapon_bonus_entry.grid(row=5, column=3, sticky="w", pady=(8, 0), padx=6)
 
         # Row 6: Main Stat
@@ -569,7 +570,7 @@ class MinimalDNDGUI:
                 i = int(int_entry.get().strip())
                 w = int(wis_entry.get().strip())
                 c = int(cha_entry.get().strip())
-                stdb = int(standard_weapon_bonus_entry.get().strip())
+                stdb = int(standard_weapon_bonus_entry.get().strip() or "0")
             except ValueError:
                 messagebox.showerror("Error", "STR/DEX/CHA/etc must be integers.")
                 return
