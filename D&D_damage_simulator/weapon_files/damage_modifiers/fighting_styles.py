@@ -9,7 +9,7 @@ class GreatWeaponFighting(DamageModifier):
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
         if hit:
-            return damage + 2
+            return damage + 1
         return damage
 
 

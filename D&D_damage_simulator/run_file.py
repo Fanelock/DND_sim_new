@@ -147,7 +147,7 @@ class MinimalDNDGUI:
     def __init__(self, master):
         self.master = master
         self.master.title("Minimal DND Expected Damage GUI")
-        self.master.geometry("630x620")
+        self.master.geometry("630x620+50+50")
 
         self.weapon_mapping = build_weapon_mapping()
 
@@ -314,7 +314,7 @@ class MinimalDNDGUI:
     def open_character_window(self, is_edit=False, existing_name=None):
         win = tk.Toplevel(self.master)
         win.title("Edit Character" if is_edit else "Create Character")
-        win.geometry("640x680")
+        win.geometry("640x680+50+50")
 
         canvas = tk.Canvas(win)
         scrollbar = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
