@@ -109,7 +109,9 @@ class AgonizingBlast(DamageModifier):
     applies_to_spell = True
 
     def modify_attack_damage(self, weapon, damage, hit, crit, context, **kwargs):
-        # weapon may be a Spell instance here (Eldritch Blast) — use get_stat_mod for safety
+        # Only applies to Eldritch Blast — ignore on all weapons
+        if type(weapon).__name__ != "Eldritch_blast":
+            return damage
         if hit:
             cha_mod = weapon.owner.get_stat_mod("cha")
             return damage + cha_mod
