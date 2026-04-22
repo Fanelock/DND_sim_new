@@ -530,6 +530,7 @@ class MinimalDNDGUI:
             wis_entry.insert(0, str(data.get("wis", 0)))
             cha_entry.insert(0, str(data.get("cha", 0)))
             standard_weapon_var.set(data.get("standard_weapon", "None") or "None")
+            standard_weapon_bonus_entry.delete(0, tk.END)
             standard_weapon_bonus_entry.insert(0, str(data.get("standard_weapon_bonus", 0)))
 
             main_stat_var.set(data.get("main_stat", "str"))
