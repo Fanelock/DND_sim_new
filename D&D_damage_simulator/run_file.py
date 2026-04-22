@@ -267,7 +267,20 @@ class MinimalDNDGUI:
 
         self.last_result = None
 
+        self.character_listbox.bind("<<ListboxSelect>>", self._on_character_select)
+
         self.refresh_character_listbox()
+
+    def _on_character_select(self, event=None):
+        """When a character is selected in the list, update the Attack Stat radio to their main_stat."""
+        sel = self.character_listbox.curselection()
+        if not sel:
+            return
+        name = self.character_listbox.get(sel)
+        char_data = self.characters.get(name, {})
+        main_stat = char_data.get("main_stat", "")
+        if main_stat:
+            self.stat_var.set(main_stat)
 
     def load_characters_from_file(self):
         if os.path.exists(CHAR_FILE):
@@ -396,9 +409,15 @@ class MinimalDNDGUI:
         standard_weapon_bonus_entry = tk.Entry(inner)
         standard_weapon_bonus_entry.grid(row=5, column=3, sticky="w", pady=(8, 0), padx=6)
 
+        # Row 6: Main Stat
+        tk.Label(inner, text="Main Stat:").grid(row=6, column=0, sticky="w", padx=8, pady=2)
+        STATS = ["str", "dex", "cha", "wis", "con", "int"]
+        main_stat_var = tk.StringVar(value="str")
+        tk.OptionMenu(inner, main_stat_var, *STATS).grid(row=6, column=1, sticky="w", padx=8, pady=2)
+
         # ── Custom Weapon section ─────────────────────────────────────────────
         sep = tk.LabelFrame(inner, text="Custom Weapon (overrides Standard Weapon if filled)")
-        sep.grid(row=6, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
+        sep.grid(row=7, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
 
         tk.Label(sep, text="Name:").grid(row=0, column=0, sticky="w", padx=6, pady=2)
         custom_weapon_name_entry = tk.Entry(sep, width=14)
@@ -431,7 +450,7 @@ class MinimalDNDGUI:
         # ── Custom Modifiers / Feats section ──────────────────────────────────
         custom_mod_frame = tk.LabelFrame(
             inner, text="Custom Feats / Damage Modifiers (to-hit and damage offsets)")
-        custom_mod_frame.grid(row=7, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
+        custom_mod_frame.grid(row=8, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
 
         # We keep a list of (name_var, to_hit_var, damage_var) rows
         custom_mod_rows = []
@@ -477,7 +496,7 @@ class MinimalDNDGUI:
             mod_by_cat[cls.category].append(name)
 
         category_order = ["Fighting Style", "Feat", "Class Feature Manual", "Other"]
-        row_offset = 8
+        row_offset = 9
         for cat in category_order:
             mods = mod_by_cat.get(cat, [])
             if not mods:
@@ -510,6 +529,8 @@ class MinimalDNDGUI:
             cha_entry.insert(0, str(data.get("cha", 0)))
             standard_weapon_var.set(data.get("standard_weapon", "None") or "None")
             standard_weapon_bonus_entry.insert(0, str(data.get("standard_weapon_bonus", 0)))
+
+            main_stat_var.set(data.get("main_stat", "str"))
 
             # restore custom weapon
             cw = data.get("custom_weapon", {})
@@ -609,6 +630,7 @@ class MinimalDNDGUI:
                 "modifiers": selected_mods,
                 "standard_weapon": "" if std_weapon == "None" else std_weapon,
                 "standard_weapon_bonus": stdb,
+                "main_stat": main_stat_var.get(),
                 "custom_weapon": custom_weapon_data,
                 "custom_modifiers": custom_mods_data,
             }
