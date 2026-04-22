@@ -6,6 +6,16 @@ import inspect
 from collections import defaultdict
 import pkgutil
 import importlib
+import sys
+import pathlib
+
+# When running as a PyInstaller .exe, sys._MEIPASS contains the extracted
+# bundle directory. We add it to sys.path so that package imports such as
+# class_files, weapon_files, spell_files etc. are found at runtime.
+if getattr(sys, 'frozen', False):
+    _bundle_dir = pathlib.Path(sys._MEIPASS)  # noqa: SLF001
+    if str(_bundle_dir) not in sys.path:
+        sys.path.insert(0, str(_bundle_dir))
 
 from class_files.base_class import BaseClass
 from class_files.base_subclass import BaseSubclass
@@ -17,9 +27,6 @@ from spell_context import SpellContext
 from weapon_files import *
 from weapon_files.damage_modifiers import *
 from spell_files import *
-
-import sys
-import pathlib
 
 def _get_data_dir() -> pathlib.Path:
     """
