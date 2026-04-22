@@ -1,55 +1,13 @@
-import random as rd
 from abc import ABC, abstractmethod
 from .damage_modifiers import DamageModifier
 from .damage_modifiers.class_features import Multiattack, warlock_modifier, ThirstingBlade
-from .damage_modifiers.class_features import fighter_modifier, attack_count
 from .damage_modifiers.fighting_styles import TwoWeaponFighting
-from .damage_modifiers.weapon_masteries import WeaponMasteryGraze
+from .damage_modifiers.weapon_masteries import WeaponMasteryGraze, WeaponMasteryNick
+from utils.math_helpers import (
+    dice_avg, parse_dice, clamp01,
+    base_hit_probs, adv_hit_probs, dis_hit_probs
+)
 
-dice_avg = {
-    "d4": 2.5, "d6": 3.5, "d8": 4.5,
-    "d10": 5.5, "d12": 6.5
-}
-
-def parse_dice(notation):
-    num, die = notation.lower().split("d")
-    return int(num), "d" + die
-
-def clamp01(x):
-    return max(0.0, min(1.0, x))
-
-def base_hit_probs(ac, to_hit):
-    p_crit = 0.05
-    p_hit = clamp01((21 + to_hit - ac) / 20)
-    p_normal = max(0.0, p_hit - p_crit)
-    p_miss = 1.0 - p_hit
-    return p_normal, p_crit, p_miss
-
-def adv_hit_probs(ac, to_hit):
-    n, c, m = base_hit_probs(ac, to_hit)
-
-    # crit if either die crits
-    p_crit = 1 - (1 - c) ** 2
-
-    # miss only if both miss
-    p_miss = m ** 2
-
-    # otherwise it's a normal hit
-    p_normal = 1 - p_crit - p_miss
-    return p_normal, p_crit, p_miss
-
-def dis_hit_probs(ac, to_hit):
-    n, c, m = base_hit_probs(ac, to_hit)
-
-    # crit only if both crit
-    p_crit = c ** 2
-
-    # hit only if both hit
-    p_hit = (n + c) ** 2
-    p_normal = p_hit - p_crit
-    p_miss = 1 - p_hit
-
-    return p_normal, p_crit, p_miss
 
 class Weapon(ABC):
     default_mastery = []
@@ -62,14 +20,13 @@ class Weapon(ABC):
         self.dice_type = dice_type
 
     def expected_damage(self, ac, context):
-
         stat_mod = self.owner.get_stat_mod(context.stat)
         prof_bonus = self.owner.get_prof_bonus()
         to_hit = stat_mod + prof_bonus + context.magic_bonus
 
         all_modifiers = (
-                [m() for m in self.default_mastery] +
-                self.owner.get_modifiers()
+            [m() for m in self.default_mastery] +
+            self.owner.get_modifiers()
         )
 
         applied_modifiers = [
@@ -90,47 +47,70 @@ class Weapon(ABC):
         crit = normal + num * dice_avg[die]
         miss = 0
 
+        # Resolve num_attacks first so Graze can use the final value
+        num_attacks = 1
+        if any(isinstance(m, Multiattack) for m in applied_modifiers):
+            num_attacks = self.owner.class_.get_attack_count(self)
+        if any(isinstance(m, ThirstingBlade) for m in applied_modifiers):
+            num_attacks = warlock_modifier(self)
+        # TWF adds one extra off-hand attack on top of the main attack count
+        has_twf = any(isinstance(m, TwoWeaponFighting) for m in applied_modifiers)
+        if has_twf:
+            num_attacks += 1
+
+        # Apply per-attack damage modifiers (excluding attack-count modifiers)
+        skip_types = (Multiattack, ThirstingBlade, TwoWeaponFighting)
         for m in applied_modifiers:
+            if isinstance(m, skip_types):
+                continue
             miss = m.modify_attack_damage(self, miss, hit=False, crit=False, context=context)
             normal = m.modify_attack_damage(self, normal, hit=True, crit=False, context=context)
             crit = m.modify_attack_damage(self, crit, hit=True, crit=True, context=context)
 
-        num_attacks = 1
+        # TWF off-hand attack does NOT add the ability modifier to damage
+        if has_twf:
+            offhand_normal = num * dice_avg[die] + context.magic_bonus + context.damage_bonus
+            offhand_crit = offhand_normal + num * dice_avg[die]
+            for m in applied_modifiers:
+                if isinstance(m, skip_types):
+                    continue
+                offhand_normal = m.modify_attack_damage(self, offhand_normal, hit=True, crit=False, context=context)
+                offhand_crit = m.modify_attack_damage(self, offhand_crit, hit=True, crit=True, context=context)
+        else:
+            offhand_normal = offhand_crit = 0
 
-        if any(isinstance(m, Multiattack) for m in applied_modifiers):
-            num_attacks = attack_count(self)
-
-        if any(isinstance(m, TwoWeaponFighting) for m in applied_modifiers):
-            num_attacks += 1
-
-        if any(isinstance(m, ThirstingBlade) for m in applied_modifiers):
-            num_attacks = warlock_modifier(self)
-
-        if any(isinstance(m, WeaponMasteryGraze) for m in applied_modifiers):
-            miss *= num_attacks
+        # Graze: on a miss, deal stat_mod damage per attack
+        has_graze = any(isinstance(m, WeaponMasteryGraze) for m in applied_modifiers)
+        if has_graze:
+            miss = max(0, stat_mod) * num_attacks
 
         d_n, d_c, d_m = dis_hit_probs(ac, to_hit)
         n_n, n_c, n_m = base_hit_probs(ac, to_hit)
         a_n, a_c, a_m = adv_hit_probs(ac, to_hit)
 
-        dis_ev = d_n * normal + d_c * crit + d_m * miss
-        normal_ev = n_n * normal + n_c * crit + n_m * miss
-        adv_ev = a_n * normal + a_c * crit + a_m * miss
+        main_attacks = num_attacks - (1 if has_twf else 0)
 
-        if any(m.__class__.__name__ == "WeaponMasteryNick" for m in applied_modifiers):
-            _normal = 2.5 + context.magic_bonus
-            _crit = 5 + context.magic_bonus
-            dis_ev += d_n * _normal + d_c * _crit
-            normal_ev += n_n * _normal + n_c * _crit
-            adv_ev += a_n * _normal + a_c * _crit
+        def ev(pn, pc, pm, n_hit, n_crit, n_miss, off_n, off_c, main_count):
+            main_ev = main_count * (pn * n_hit + pc * n_crit + pm * n_miss)
+            off_ev = (pn * off_n + pc * off_c) if has_twf else 0
+            return main_ev + off_ev
+
+        dis_ev = ev(d_n, d_c, d_m, normal, crit, miss, offhand_normal, offhand_crit, main_attacks)
+        normal_ev = ev(n_n, n_c, n_m, normal, crit, miss, offhand_normal, offhand_crit, main_attacks)
+        adv_ev = ev(a_n, a_c, a_m, normal, crit, miss, offhand_normal, offhand_crit, main_attacks)
+
+        if any(isinstance(m, WeaponMasteryNick) for m in applied_modifiers):
+            nick_weapon_normal = num * dice_avg[die] + stat_mod
+            nick_weapon_crit = nick_weapon_normal + num * dice_avg[die]
+            dis_ev += d_n * nick_weapon_normal + d_c * nick_weapon_crit
+            normal_ev += n_n * nick_weapon_normal + n_c * nick_weapon_crit
+            adv_ev += a_n * nick_weapon_normal + a_c * nick_weapon_crit
 
         return {
             "num_attacks": num_attacks,
-
             "disadvantage": dis_ev,
             "normal": normal_ev,
             "advantage": adv_ev,
-
             "debug": {
                 "damage": {
                     "miss": miss,
@@ -149,20 +129,20 @@ class Weapon(ABC):
     def __str__(self):
         pass
 
-class VersatileWeapon(Weapon, ABC):
-    default_mastery = []
 
-    def __init__(self, owner, name, damage_type, base_dice="1d8"):
+class VersatileWeapon(Weapon):
+    """A weapon that can be used one-handed (base_dice) or two-handed (upgraded dice)."""
+
+    _versatile_upgrade = {
+        "1d6": "1d8",
+        "1d8": "1d10",
+    }
+
+    def __init__(self, owner, name, damage_type, base_dice):
         super().__init__(owner, name, "Versatile", damage_type, base_dice)
         self.base_dice = base_dice
-        self.dmg = 0
-        self.supports_sneak_attack = False
 
     def get_dice_for_attack(self, context):
-        if context.two_handed and self.base_dice == "1d8":
-            return "1d10"
+        if context.two_handed:
+            return self._versatile_upgrade.get(self.base_dice, self.base_dice)
         return self.base_dice
-
-    @abstractmethod
-    def __str__(self):
-        pass
