@@ -18,7 +18,29 @@ from weapon_files import *
 from weapon_files.damage_modifiers import *
 from spell_files import *
 
-CHAR_FILE = "characters.json"
+import sys
+import pathlib
+
+def _get_data_dir() -> pathlib.Path:
+    """
+    Returns a persistent, writable directory for app data regardless of
+    whether the app is run as a plain script or a PyInstaller .exe.
+
+    Windows : %APPDATA%\DND_sim
+    macOS   : ~/Library/Application Support/DND_sim
+    Linux   : ~/.local/share/DND_sim
+    """
+    if sys.platform == "win32":
+        base = pathlib.Path.home() / "AppData" / "Roaming"
+    elif sys.platform == "darwin":
+        base = pathlib.Path.home() / "Library" / "Application Support"
+    else:
+        base = pathlib.Path.home() / ".local" / "share"
+    data_dir = base / "DND_sim"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+CHAR_FILE = str(_get_data_dir() / "characters.json")
 
 modifier_package = importlib.import_module("weapon_files.damage_modifiers")
 for _, module_name, _ in pkgutil.iter_modules(modifier_package.__path__):
