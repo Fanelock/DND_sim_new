@@ -266,6 +266,7 @@ class MinimalDNDGUI:
         run_frame.pack(fill="x", padx=8, pady=(8,0))
         tk.Button(run_frame, text="Compute Expected Damage", command=self.run_expected_damage).pack(side="left", padx=6)
         tk.Button(run_frame, text="Show Raw Result (debug)", command=self.show_last_result).pack(side="left", padx=6)
+        tk.Button(run_frame, text="Boss Fight Estimator", command=self.open_boss_window).pack(side="left", padx=6)
 
         # Output area
         out_frame = tk.LabelFrame(master, text="Result")
@@ -986,6 +987,150 @@ class MinimalDNDGUI:
 
         text.insert("1.0", "\n".join(lines))
         text.config(state="disabled")
+
+    def open_boss_window(self):
+        win = tk.Toplevel(self.master)
+        win.title("Boss Fight Estimator")
+        win.geometry("500x520+100+100")
+
+        # --- Character selection (multi-select listbox) ---
+        tk.Label(win, text="Select characters for the fight:").pack(anchor="w", padx=10, pady=(10, 0))
+        char_frame = tk.Frame(win)
+        char_frame.pack(fill="x", padx=10)
+
+        char_listbox = tk.Listbox(char_frame, selectmode=tk.MULTIPLE, height=8)
+        char_listbox.pack(side="left", fill="both", expand=True)
+        sb = tk.Scrollbar(char_frame, command=char_listbox.yview)
+        sb.pack(side="right", fill="y")
+        char_listbox.config(yscrollcommand=sb.set)
+
+        for name in sorted(self.characters.keys()):
+            char_listbox.insert(tk.END, name)
+
+        # --- Boss stats ---
+        boss_frame = tk.LabelFrame(win, text="Boss Stats")
+        boss_frame.pack(fill="x", padx=10, pady=10)
+
+        tk.Label(boss_frame, text="Boss HP:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
+        hp_entry = tk.Entry(boss_frame, width=10)
+        hp_entry.insert(0, "200")
+        hp_entry.grid(row=0, column=1, padx=6, pady=4)
+
+        tk.Label(boss_frame, text="Boss AC:").grid(row=0, column=2, sticky="w", padx=6, pady=4)
+        ac_entry = tk.Entry(boss_frame, width=10)
+        ac_entry.insert(0, "17")
+        ac_entry.grid(row=0, column=3, padx=6, pady=4)
+
+        # --- Roll mode ---
+        tk.Label(win, text="Roll Mode:").pack(anchor="w", padx=10)
+        mode_var = tk.StringVar(value="normal")
+        mode_frame = tk.Frame(win)
+        mode_frame.pack(anchor="w", padx=20)
+        for label, val in [("Normal", "normal"), ("Advantage", "advantage"), ("Disadvantage", "disadvantage")]:
+            tk.Radiobutton(mode_frame, text=label, variable=mode_var, value=val).pack(side="left")
+
+        # --- Output ---
+        out_frame = tk.LabelFrame(win, text="Result")
+        out_frame.pack(fill="both", expand=True, padx=10, pady=6)
+        result_text = tk.Text(out_frame, height=10, wrap="word")
+        result_text.pack(fill="both", expand=True, padx=6, pady=6)
+
+        def estimate():
+            selected_indices = char_listbox.curselection()
+            if not selected_indices:
+                messagebox.showwarning("No characters", "Select at least one character.", parent=win)
+                return
+            try:
+                boss_hp = int(hp_entry.get().strip())
+                boss_ac = int(ac_entry.get().strip())
+            except ValueError:
+                messagebox.showerror("Error", "HP and AC must be integers.", parent=win)
+                return
+
+            mode = mode_var.get()
+            total_dpt = 0.0
+            lines = []
+
+            for idx in selected_indices:
+                name = char_listbox.get(idx)
+                char_data = self.characters.get(name, {})
+
+                # Build Character object (reuse existing logic)
+                char_obj = Character(
+                    lvl=char_data.get("lvl", 0),
+                    str_mod=char_data.get("str", 0),
+                    dex_mod=char_data.get("dex", 0),
+                    cha_mod=char_data.get("cha", 0),
+                    wis_mod=char_data.get("wis", 0),
+                    con_mod=char_data.get("con", 0),
+                    int_mod=char_data.get("int", 0),
+                )
+                char_obj.clear_modifiers()
+                cls_name = char_data.get("class", "")
+                cls_cls = self.class_mapping.get(cls_name)
+                if cls_cls:
+                    char_obj.set_class(cls_cls)
+                sub_name = char_data.get("subclass", "")
+                sub_cls = self.subclass_mapping.get(sub_name)
+                if sub_cls:
+                    char_obj.set_subclass(sub_cls)
+                char_obj.apply_class_features()
+                for mod_name in char_data.get("modifiers", []):
+                    mod_cls = self.modifier_mapping.get(mod_name)
+                    if mod_cls:
+                        char_obj.add_modifier(mod_cls)
+                for cm in char_data.get("custom_modifiers", []):
+                    dyn = make_custom_modifier(cm["name"], cm.get("to_hit", 0), cm.get("damage", 0))
+                    char_obj.add_modifier(dyn)
+                char_obj.default_weapon_name = char_data.get("standard_weapon", "")
+                char_obj.default_weapon_bonus = char_data.get("standard_weapon_bonus", 0)
+
+                # Resolve weapon (custom or standard)
+                cw = char_data.get("custom_weapon", {})
+                if cw and cw.get("name") and cw.get("dice"):
+                    from weapon_files.damage_modifiers.weapon_masteries import WeaponMasteryGraze, WeaponMasteryNick
+                    _mastery_map = {"Graze": WeaponMasteryGraze, "Nick": WeaponMasteryNick}
+                    weapon_obj = CustomWeapon(
+                        owner=char_obj,
+                        name=cw["name"],
+                        weapon_type=cw.get("weapon_type", "Melee"),
+                        dice=cw["dice"],
+                        magic_bonus=cw.get("magic_bonus", 0),
+                        mastery_cls=_mastery_map.get(cw.get("mastery", "None")),
+                    )
+                else:
+                    weapon_obj = char_obj.get_default_weapon(self.weapon_mapping)
+
+                if weapon_obj is None:
+                    lines.append(f"{name}: ⚠ No weapon set, skipped.")
+                    continue
+
+                a_ctx = AttackContext(
+                    stat=char_data.get("main_stat", "str"),
+                    magic_bonus=char_data.get("standard_weapon_bonus", 0),
+                    use_mastery=True,
+                    two_handed=False,
+                    damage_bonus=0,
+                )
+
+                result = weapon_obj.expected_damage(boss_ac, a_ctx)
+                dpt = result.get(mode, 0)
+                total_dpt += dpt
+                lines.append(f"{name}: {dpt:.2f} dmg/turn")
+
+            if total_dpt <= 0:
+                lines.append("\nCannot estimate (no valid damage).")
+            else:
+                rounds = boss_hp / total_dpt
+                lines.append(f"\nTotal party DPT ({mode}): {total_dpt:.2f}")
+                lines.append(f"Boss HP: {boss_hp}")
+                lines.append(f"Estimated rounds to kill: {rounds:.1f}")
+                lines.append(f"Estimated in-game time:   ~{rounds * 6:.0f} seconds ({rounds / 10:.1f} min)")
+
+            result_text.delete("1.0", tk.END)
+            result_text.insert(tk.END, "\n".join(lines))
+
+        tk.Button(win, text="Estimate Fight Duration", command=estimate).pack(pady=6)
 
 def main():
     root = tk.Tk()
