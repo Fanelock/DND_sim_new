@@ -1073,13 +1073,20 @@ class MinimalDNDGUI:
         ac_entry.insert(0, "17")
         ac_entry.grid(row=0, column=3, padx=6, pady=4)
 
-        # --- Roll mode ---
-        tk.Label(win, text="Roll Mode:").pack(anchor="w", padx=10)
+        # --- Roll mode + weapon options ---
+        options_frame = tk.Frame(win)
+        options_frame.pack(fill="x", padx=10, pady=(2, 0))
+
+        tk.Label(options_frame, text="Roll Mode:").pack(side="left")
         mode_var = tk.StringVar(value="normal")
-        mode_frame = tk.Frame(win)
-        mode_frame.pack(anchor="w", padx=20)
         for label, val in [("Normal", "normal"), ("Advantage", "advantage"), ("Disadvantage", "disadvantage")]:
-            tk.Radiobutton(mode_frame, text=label, variable=mode_var, value=val).pack(side="left")
+            tk.Radiobutton(options_frame, text=label, variable=mode_var, value=val).pack(side="left", padx=2)
+
+        mastery_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(options_frame, text="Use Mastery", variable=mastery_var).pack(side="left", padx=(16, 2))
+
+        twohanded_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(options_frame, text="Two-Handed", variable=twohanded_var).pack(side="left", padx=2)
 
         # --- Output ---
         out_frame = tk.LabelFrame(win, text="Result")
@@ -1195,8 +1202,8 @@ class MinimalDNDGUI:
                 a_ctx = AttackContext(
                     stat=stat,
                     magic_bonus=magic_bonus_used,
-                    use_mastery=True,
-                    two_handed=False,
+                    use_mastery=mastery_var.get(),
+                    two_handed=twohanded_var.get(),
                     damage_bonus=0,
                 )
                 result = weapon_obj.expected_damage(boss_ac, a_ctx)
