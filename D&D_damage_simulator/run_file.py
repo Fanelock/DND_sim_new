@@ -991,25 +991,77 @@ class MinimalDNDGUI:
     def open_boss_window(self):
         win = tk.Toplevel(self.master)
         win.title("Boss Fight Estimator")
-        win.geometry("500x520+100+100")
+        win.geometry("740x620+100+100")
 
-        # --- Character selection (multi-select listbox) ---
-        tk.Label(win, text="Select characters for the fight:").pack(anchor="w", padx=10, pady=(10, 0))
-        char_frame = tk.Frame(win)
-        char_frame.pack(fill="x", padx=10)
+        spell_choices = ["None"] + sorted(self.spell_mapping.keys())
 
-        char_listbox = tk.Listbox(char_frame, selectmode=tk.MULTIPLE, height=8)
-        char_listbox.pack(side="left", fill="both", expand=True)
-        sb = tk.Scrollbar(char_frame, command=char_listbox.yview)
-        sb.pack(side="right", fill="y")
-        char_listbox.config(yscrollcommand=sb.set)
+        # --- Character table with per-character spell/dice controls ---
+        tk.Label(win, text="Select characters and configure spells for the fight:").pack(
+            anchor="w", padx=10, pady=(10, 0)
+        )
 
-        for name in sorted(self.characters.keys()):
-            char_listbox.insert(tk.END, name)
+        # Outer frame that holds canvas + scrollbar
+        table_outer = tk.Frame(win)
+        table_outer.pack(fill="x", padx=10, pady=(0, 4))
+
+        table_canvas = tk.Canvas(table_outer, height=220, highlightthickness=0)
+        table_scroll = tk.Scrollbar(table_outer, orient="vertical", command=table_canvas.yview)
+        table_canvas.configure(yscrollcommand=table_scroll.set)
+        table_scroll.pack(side="right", fill="y")
+        table_canvas.pack(side="left", fill="both", expand=True)
+
+        table_inner = tk.Frame(table_canvas)
+        table_canvas.create_window((0, 0), window=table_inner, anchor="nw")
+
+        def _on_table_configure(event):
+            table_canvas.configure(scrollregion=table_canvas.bbox("all"))
+        table_inner.bind("<Configure>", _on_table_configure)
+
+        # Column headers
+        header_font = ("TkDefaultFont", 9, "bold")
+        tk.Label(table_inner, text="In",    font=header_font, width=3).grid(row=0, column=0, padx=4, pady=2)
+        tk.Label(table_inner, text="Character", font=header_font, anchor="w").grid(row=0, column=1, padx=4, pady=2, sticky="w")
+        tk.Label(table_inner, text="Spell",  font=header_font).grid(row=0, column=2, padx=4, pady=2)
+        tk.Label(table_inner, text="Dice",   font=header_font).grid(row=0, column=3, padx=4, pady=2)
+        tk.Label(table_inner, text="Stat",   font=header_font).grid(row=0, column=4, padx=4, pady=2)
+
+        # One row per character; store per-row widget references
+        # Each entry: (name, selected_var, spell_var, dice_entry, stat_var)
+        char_rows = []
+        STAT_CHOICES = ["str", "dex", "con", "int", "wis", "cha"]
+
+        for row_idx, name in enumerate(sorted(self.characters.keys()), start=1):
+            char_data = self.characters[name]
+            default_main_stat = char_data.get("main_stat", "str")
+
+            selected_var = tk.BooleanVar(value=False)
+            spell_var    = tk.StringVar(value="None")
+            stat_var     = tk.StringVar(value=default_main_stat)
+
+            chk = tk.Checkbutton(table_inner, variable=selected_var)
+            chk.grid(row=row_idx, column=0, padx=2)
+
+            tk.Label(table_inner, text=name, anchor="w", width=18).grid(
+                row=row_idx, column=1, padx=4, sticky="w"
+            )
+
+            spell_menu = tk.OptionMenu(table_inner, spell_var, *spell_choices)
+            spell_menu.config(width=14)
+            spell_menu.grid(row=row_idx, column=2, padx=4)
+
+            dice_entry = tk.Entry(table_inner, width=7)
+            dice_entry.insert(0, "")
+            dice_entry.grid(row=row_idx, column=3, padx=4)
+
+            stat_menu = tk.OptionMenu(table_inner, stat_var, *STAT_CHOICES)
+            stat_menu.config(width=4)
+            stat_menu.grid(row=row_idx, column=4, padx=4)
+
+            char_rows.append((name, selected_var, spell_var, dice_entry, stat_var))
 
         # --- Boss stats ---
         boss_frame = tk.LabelFrame(win, text="Boss Stats")
-        boss_frame.pack(fill="x", padx=10, pady=10)
+        boss_frame.pack(fill="x", padx=10, pady=6)
 
         tk.Label(boss_frame, text="Boss HP:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
         hp_entry = tk.Entry(boss_frame, width=10)
@@ -1032,13 +1084,13 @@ class MinimalDNDGUI:
         # --- Output ---
         out_frame = tk.LabelFrame(win, text="Result")
         out_frame.pack(fill="both", expand=True, padx=10, pady=6)
-        result_text = tk.Text(out_frame, height=10, wrap="word")
+        result_text = tk.Text(out_frame, height=8, wrap="word")
         result_text.pack(fill="both", expand=True, padx=6, pady=6)
 
         def estimate():
-            selected_indices = char_listbox.curselection()
-            if not selected_indices:
-                messagebox.showwarning("No characters", "Select at least one character.", parent=win)
+            active_rows = [(n, sv, spv, de, stv) for (n, sv, spv, de, stv) in char_rows if sv.get()]
+            if not active_rows:
+                messagebox.showwarning("No characters", "Check at least one character.", parent=win)
                 return
             try:
                 boss_hp = int(hp_entry.get().strip())
@@ -1051,11 +1103,10 @@ class MinimalDNDGUI:
             total_dpt = 0.0
             lines = []
 
-            for idx in selected_indices:
-                name = char_listbox.get(idx)
+            for (name, _sel, spell_var_row, dice_entry_row, stat_var_row) in active_rows:
                 char_data = self.characters.get(name, {})
 
-                # Build Character object (reuse existing logic)
+                # Build Character object
                 char_obj = Character(
                     lvl=char_data.get("lvl", 0),
                     str_mod=char_data.get("str", 0),
@@ -1085,7 +1136,37 @@ class MinimalDNDGUI:
                 char_obj.default_weapon_name = char_data.get("standard_weapon", "")
                 char_obj.default_weapon_bonus = char_data.get("standard_weapon_bonus", 0)
 
-                # Resolve weapon (custom or standard)
+                stat      = stat_var_row.get()
+                spell_name_row = spell_var_row.get()
+                dice_str  = dice_entry_row.get().strip()
+
+                # --- Priority 1: Spell selected ---
+                if spell_name_row != "None":
+                    spell_class = self.spell_mapping.get(spell_name_row)
+                    if spell_class is None:
+                        lines.append(f"{name}: ⚠ Spell '{spell_name_row}' not found, skipped.")
+                        continue
+                    if not dice_str:
+                        lines.append(f"{name}: ⚠ Spell selected but no dice entered (e.g. 1d10), skipped.")
+                        continue
+                    spell_obj = spell_class(char_obj)
+                    s_ctx = SpellContext(
+                        stat=stat,
+                        magic_bonus=0,
+                        dice=dice_str,
+                        damage_bonus=0,
+                    )
+                    try:
+                        result = spell_obj.expected_damage(boss_ac, s_ctx)
+                    except Exception as e:
+                        lines.append(f"{name}: ⚠ Spell error: {e}")
+                        continue
+                    dpt = result.get(mode, 0)
+                    total_dpt += dpt
+                    lines.append(f"{name} [{spell_name_row}]: {dpt:.2f} dmg/turn")
+                    continue
+
+                # --- Priority 2: Custom weapon ---
                 cw = char_data.get("custom_weapon", {})
                 if cw and cw.get("name") and cw.get("dice"):
                     from weapon_files.damage_modifiers.weapon_masteries import WeaponMasteryGraze, WeaponMasteryNick
@@ -1098,25 +1179,29 @@ class MinimalDNDGUI:
                         magic_bonus=cw.get("magic_bonus", 0),
                         mastery_cls=_mastery_map.get(cw.get("mastery", "None")),
                     )
+                    magic_bonus_used = cw.get("magic_bonus", 0)
                 else:
+                    # --- Priority 3: Standard weapon ---
                     weapon_obj = char_obj.get_default_weapon(self.weapon_mapping)
+                    magic_bonus_used = char_data.get("standard_weapon_bonus", 0)
 
                 if weapon_obj is None:
-                    lines.append(f"{name}: ⚠ No weapon set, skipped.")
+                    lines.append(f"{name}: ⚠ No spell, no weapon set — skipped.")
                     continue
 
                 a_ctx = AttackContext(
-                    stat=char_data.get("main_stat", "str"),
-                    magic_bonus=char_data.get("standard_weapon_bonus", 0),
+                    stat=stat,
+                    magic_bonus=magic_bonus_used,
                     use_mastery=True,
                     two_handed=False,
                     damage_bonus=0,
                 )
-
                 result = weapon_obj.expected_damage(boss_ac, a_ctx)
                 dpt = result.get(mode, 0)
                 total_dpt += dpt
-                lines.append(f"{name}: {dpt:.2f} dmg/turn")
+                _class_gui = getattr(type(weapon_obj), "gui_name", "")
+                weapon_label = weapon_obj.name if _class_gui == "_custom_" else (_class_gui or weapon_obj.name)
+                lines.append(f"{name} [{weapon_label}]: {dpt:.2f} dmg/turn")
 
             if total_dpt <= 0:
                 lines.append("\nCannot estimate (no valid damage).")
