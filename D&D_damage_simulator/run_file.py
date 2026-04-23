@@ -1150,9 +1150,12 @@ class MinimalDNDGUI:
                         lines.append(f"{name}: ⚠ Spell selected but no dice entered (e.g. 1d10), skipped.")
                         continue
                     spell_obj = spell_class(char_obj)
+                    # Use the character's stored weapon/spell bonus for the to-hit roll,
+                    # consistent with how the main GUI uses its magic bonus field.
+                    spell_magic_bonus = char_data.get("standard_weapon_bonus", 0)
                     s_ctx = SpellContext(
                         stat=stat,
-                        magic_bonus=0,
+                        magic_bonus=spell_magic_bonus,
                         dice=dice_str,
                         damage_bonus=0,
                     )
