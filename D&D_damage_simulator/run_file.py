@@ -1000,7 +1000,7 @@ class MinimalDNDGUI:
     def open_boss_window(self):
         win = tk.Toplevel(self.master)
         win.title("Boss Fight Estimator")
-        win.geometry("960x680+100+100")
+        win.geometry("660x620+700+50")
 
         spell_choices = ["None"] + sorted(self.spell_mapping.keys())
 
@@ -1071,32 +1071,30 @@ class MinimalDNDGUI:
             table_canvas.itemconfig(_table_window, width=event.width)
         table_canvas.bind("<Configure>", _on_canvas_resize)
 
-        # Mousewheel scrolling (Windows + Linux)
+        # --- Mousewheel scrolling ---
+        # Use win-level bindings that are active only while the pointer is
+        # inside the table area. This works even when the cursor is over a
+        # child widget (Checkbutton, OptionMenu, Entry) that would otherwise
+        # swallow the event before it reached the canvas.
         def _on_mousewheel(event):
             table_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        def _on_mousewheel_linux_up(event):
+        def _on_mousewheel_up(event):
             table_canvas.yview_scroll(-1, "units")
-        def _on_mousewheel_linux_down(event):
+        def _on_mousewheel_down(event):
             table_canvas.yview_scroll(1, "units")
 
-        table_canvas.bind("<MouseWheel>", _on_mousewheel)          # Windows/macOS
-        table_canvas.bind("<Button-4>", _on_mousewheel_linux_up)   # Linux scroll up
-        table_canvas.bind("<Button-5>", _on_mousewheel_linux_down) # Linux scroll down
-        table_inner.bind("<MouseWheel>", _on_mousewheel)
-        table_inner.bind("<Button-4>", _on_mousewheel_linux_up)
-        table_inner.bind("<Button-5>", _on_mousewheel_linux_down)
+        def _enable_scroll(event):
+            win.bind_all("<MouseWheel>", _on_mousewheel)
+            win.bind_all("<Button-4>",   _on_mousewheel_up)
+            win.bind_all("<Button-5>",   _on_mousewheel_down)
 
-        def _bind_mousewheel_recursive(widget):
-            widget.bind("<MouseWheel>", _on_mousewheel)
-            widget.bind("<Button-4>", _on_mousewheel_linux_up)
-            widget.bind("<Button-5>", _on_mousewheel_linux_down)
-            for child in widget.winfo_children():
-                _bind_mousewheel_recursive(child)
+        def _disable_scroll(event):
+            win.unbind_all("<MouseWheel>")
+            win.unbind_all("<Button-4>")
+            win.unbind_all("<Button-5>")
 
-        # Re-bind after all row widgets are created
-        def _rebind_after_build():
-            _bind_mousewheel_recursive(table_inner)
-        win.after(100, _rebind_after_build)
+        table_outer.bind("<Enter>", _enable_scroll)
+        table_outer.bind("<Leave>", _disable_scroll)
 
         # Column headers
         # Columns: In | Character | Spell | Dice | Stat | Mastery | 2H | TWF
