@@ -1000,31 +1000,103 @@ class MinimalDNDGUI:
     def open_boss_window(self):
         win = tk.Toplevel(self.master)
         win.title("Boss Fight Estimator")
-        win.geometry("960x620+100+100")
+        win.geometry("960x680+100+100")
 
         spell_choices = ["None"] + sorted(self.spell_mapping.keys())
+
+        # ----------------------------------------------------------------
+        # Pack bottom widgets FIRST so tkinter reserves their space before
+        # the expanding character table claims any remaining room.
+        # ----------------------------------------------------------------
+
+        # --- Estimate button (very bottom) ---
+        btn_frame = tk.Frame(win)
+        btn_frame.pack(side="bottom", fill="x", padx=10, pady=4)
+        estimate_btn = tk.Button(btn_frame, text="Estimate Fight Duration")
+        estimate_btn.pack(pady=2)
+
+        # --- Output ---
+        out_frame = tk.LabelFrame(win, text="Result")
+        out_frame.pack(side="bottom", fill="both", expand=False, padx=10, pady=(0, 4))
+        result_text = tk.Text(out_frame, height=8, wrap="word")
+        result_text.pack(fill="both", expand=True, padx=6, pady=6)
+
+        # --- Roll mode ---
+        options_frame = tk.Frame(win)
+        options_frame.pack(side="bottom", fill="x", padx=10, pady=(2, 0))
+        tk.Label(options_frame, text="Roll Mode:").pack(side="left")
+        mode_var = tk.StringVar(value="normal")
+        for label, val in [("Normal", "normal"), ("Advantage", "advantage"), ("Disadvantage", "disadvantage")]:
+            tk.Radiobutton(options_frame, text=label, variable=mode_var, value=val).pack(side="left", padx=2)
+
+        # --- Boss stats ---
+        boss_frame = tk.LabelFrame(win, text="Boss Stats")
+        boss_frame.pack(side="bottom", fill="x", padx=10, pady=6)
+        tk.Label(boss_frame, text="Boss HP:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
+        hp_entry = tk.Entry(boss_frame, width=10)
+        hp_entry.insert(0, "200")
+        hp_entry.grid(row=0, column=1, padx=6, pady=4)
+        tk.Label(boss_frame, text="Boss AC:").grid(row=0, column=2, sticky="w", padx=6, pady=4)
+        ac_entry = tk.Entry(boss_frame, width=10)
+        ac_entry.insert(0, "17")
+        ac_entry.grid(row=0, column=3, padx=6, pady=4)
+
+        # ----------------------------------------------------------------
+        # Now pack the top label + expanding scrollable character table.
+        # ----------------------------------------------------------------
 
         # --- Character table with per-character controls ---
         tk.Label(win, text="Select characters and configure options for the fight:").pack(
             anchor="w", padx=10, pady=(10, 0)
         )
 
-        # Outer frame that holds canvas + scrollbar
+        # Outer frame that holds canvas + scrollbar — fills available vertical space
         table_outer = tk.Frame(win)
-        table_outer.pack(fill="x", padx=10, pady=(0, 4))
+        table_outer.pack(fill="both", expand=True, padx=10, pady=(0, 4))
 
-        table_canvas = tk.Canvas(table_outer, height=220, highlightthickness=0)
+        table_canvas = tk.Canvas(table_outer, highlightthickness=0)
         table_scroll = tk.Scrollbar(table_outer, orient="vertical", command=table_canvas.yview)
         table_canvas.configure(yscrollcommand=table_scroll.set)
         table_scroll.pack(side="right", fill="y")
         table_canvas.pack(side="left", fill="both", expand=True)
 
         table_inner = tk.Frame(table_canvas)
-        table_canvas.create_window((0, 0), window=table_inner, anchor="nw")
+        _table_window = table_canvas.create_window((0, 0), window=table_inner, anchor="nw")
 
         def _on_table_configure(event):
             table_canvas.configure(scrollregion=table_canvas.bbox("all"))
         table_inner.bind("<Configure>", _on_table_configure)
+
+        def _on_canvas_resize(event):
+            table_canvas.itemconfig(_table_window, width=event.width)
+        table_canvas.bind("<Configure>", _on_canvas_resize)
+
+        # Mousewheel scrolling (Windows + Linux)
+        def _on_mousewheel(event):
+            table_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        def _on_mousewheel_linux_up(event):
+            table_canvas.yview_scroll(-1, "units")
+        def _on_mousewheel_linux_down(event):
+            table_canvas.yview_scroll(1, "units")
+
+        table_canvas.bind("<MouseWheel>", _on_mousewheel)          # Windows/macOS
+        table_canvas.bind("<Button-4>", _on_mousewheel_linux_up)   # Linux scroll up
+        table_canvas.bind("<Button-5>", _on_mousewheel_linux_down) # Linux scroll down
+        table_inner.bind("<MouseWheel>", _on_mousewheel)
+        table_inner.bind("<Button-4>", _on_mousewheel_linux_up)
+        table_inner.bind("<Button-5>", _on_mousewheel_linux_down)
+
+        def _bind_mousewheel_recursive(widget):
+            widget.bind("<MouseWheel>", _on_mousewheel)
+            widget.bind("<Button-4>", _on_mousewheel_linux_up)
+            widget.bind("<Button-5>", _on_mousewheel_linux_down)
+            for child in widget.winfo_children():
+                _bind_mousewheel_recursive(child)
+
+        # Re-bind after all row widgets are created
+        def _rebind_after_build():
+            _bind_mousewheel_recursive(table_inner)
+        win.after(100, _rebind_after_build)
 
         # Column headers
         # Columns: In | Character | Spell | Dice | Stat | Mastery | 2H | TWF
@@ -1077,35 +1149,6 @@ class MinimalDNDGUI:
             tk.Checkbutton(table_inner, variable=twf_var).grid(row=row_idx, column=7, padx=4)
 
             char_rows.append((name, selected_var, spell_var, dice_entry, stat_var, mastery_var, twohand_var, twf_var))
-
-        # --- Boss stats ---
-        boss_frame = tk.LabelFrame(win, text="Boss Stats")
-        boss_frame.pack(fill="x", padx=10, pady=6)
-
-        tk.Label(boss_frame, text="Boss HP:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
-        hp_entry = tk.Entry(boss_frame, width=10)
-        hp_entry.insert(0, "200")
-        hp_entry.grid(row=0, column=1, padx=6, pady=4)
-
-        tk.Label(boss_frame, text="Boss AC:").grid(row=0, column=2, sticky="w", padx=6, pady=4)
-        ac_entry = tk.Entry(boss_frame, width=10)
-        ac_entry.insert(0, "17")
-        ac_entry.grid(row=0, column=3, padx=6, pady=4)
-
-        # --- Roll mode ---
-        options_frame = tk.Frame(win)
-        options_frame.pack(fill="x", padx=10, pady=(2, 0))
-
-        tk.Label(options_frame, text="Roll Mode:").pack(side="left")
-        mode_var = tk.StringVar(value="normal")
-        for label, val in [("Normal", "normal"), ("Advantage", "advantage"), ("Disadvantage", "disadvantage")]:
-            tk.Radiobutton(options_frame, text=label, variable=mode_var, value=val).pack(side="left", padx=2)
-
-        # --- Output ---
-        out_frame = tk.LabelFrame(win, text="Result")
-        out_frame.pack(fill="both", expand=True, padx=10, pady=6)
-        result_text = tk.Text(out_frame, height=8, wrap="word")
-        result_text.pack(fill="both", expand=True, padx=6, pady=6)
 
         def estimate():
             active_rows = [
@@ -1243,7 +1286,7 @@ class MinimalDNDGUI:
             result_text.delete("1.0", tk.END)
             result_text.insert(tk.END, "\n".join(lines))
 
-        tk.Button(win, text="Estimate Fight Duration", command=estimate).pack(pady=6)
+        estimate_btn.config(command=estimate)
 
 def main():
     root = tk.Tk()
