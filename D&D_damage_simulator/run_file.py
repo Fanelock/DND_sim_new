@@ -249,7 +249,7 @@ class MinimalDNDGUI:
         self.magic_entry.insert(0, "")
         self.magic_entry.grid(row=2, column=3, sticky="w", pady=(8, 0), padx=6)
 
-        # --- Row 3: Mastery, Two-Handed & Damage Bonus ---
+        # --- Row 3: Mastery, Two-Handed, TWF & Damage Bonus ---
         self.mastery_var = tk.BooleanVar()
         tk.Checkbutton(middle_frame, text="Use Mastery", variable=self.mastery_var).grid(row=3, column=0, sticky="w", pady=(10, 0))
 
@@ -260,6 +260,14 @@ class MinimalDNDGUI:
         self.damage_bonus_entry = tk.Entry(middle_frame, width=8)
         self.damage_bonus_entry.insert(0, "")
         self.damage_bonus_entry.grid(row=3, column=3, sticky="w", pady=(8, 0), padx=6)
+
+        # --- Row 4: Two Weapon Fighting checkbox (off-hand without stat mod) ---
+        self.twf_var = tk.BooleanVar()
+        tk.Checkbutton(
+            middle_frame,
+            text="Two Weapon Fighting (off-hand, no stat mod)",
+            variable=self.twf_var,
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
         # Run simulation / expected damage
         run_frame = tk.Frame(master)
@@ -799,7 +807,8 @@ class MinimalDNDGUI:
             magic_bonus=magic_bonus,
             use_mastery=self.mastery_var.get(),
             two_handed=self.twohand_var.get(),
-            damage_bonus=damage_bonus
+            damage_bonus=damage_bonus,
+            use_twf=self.twf_var.get(),
         )
 
         dice_str = self.spell_dice_entry.get().strip()
@@ -991,12 +1000,12 @@ class MinimalDNDGUI:
     def open_boss_window(self):
         win = tk.Toplevel(self.master)
         win.title("Boss Fight Estimator")
-        win.geometry("740x620+100+100")
+        win.geometry("960x620+100+100")
 
         spell_choices = ["None"] + sorted(self.spell_mapping.keys())
 
-        # --- Character table with per-character spell/dice controls ---
-        tk.Label(win, text="Select characters and configure spells for the fight:").pack(
+        # --- Character table with per-character controls ---
+        tk.Label(win, text="Select characters and configure options for the fight:").pack(
             anchor="w", padx=10, pady=(10, 0)
         )
 
@@ -1018,15 +1027,19 @@ class MinimalDNDGUI:
         table_inner.bind("<Configure>", _on_table_configure)
 
         # Column headers
+        # Columns: In | Character | Spell | Dice | Stat | Mastery | 2H | TWF
         header_font = ("TkDefaultFont", 9, "bold")
-        tk.Label(table_inner, text="In",    font=header_font, width=3).grid(row=0, column=0, padx=4, pady=2)
+        tk.Label(table_inner, text="In",        font=header_font, width=3).grid(row=0, column=0, padx=4, pady=2)
         tk.Label(table_inner, text="Character", font=header_font, anchor="w").grid(row=0, column=1, padx=4, pady=2, sticky="w")
-        tk.Label(table_inner, text="Spell",  font=header_font).grid(row=0, column=2, padx=4, pady=2)
-        tk.Label(table_inner, text="Dice",   font=header_font).grid(row=0, column=3, padx=4, pady=2)
-        tk.Label(table_inner, text="Stat",   font=header_font).grid(row=0, column=4, padx=4, pady=2)
+        tk.Label(table_inner, text="Spell",     font=header_font).grid(row=0, column=2, padx=4, pady=2)
+        tk.Label(table_inner, text="Dice",      font=header_font).grid(row=0, column=3, padx=4, pady=2)
+        tk.Label(table_inner, text="Stat",      font=header_font).grid(row=0, column=4, padx=4, pady=2)
+        tk.Label(table_inner, text="Mastery",   font=header_font).grid(row=0, column=5, padx=4, pady=2)
+        tk.Label(table_inner, text="2H",         font=header_font).grid(row=0, column=6, padx=4, pady=2)
+        tk.Label(table_inner, text="TWF",        font=header_font).grid(row=0, column=7, padx=4, pady=2)
 
-        # One row per character; store per-row widget references
-        # Each entry: (name, selected_var, spell_var, dice_entry, stat_var)
+        # One row per character
+        # Each entry: (name, selected_var, spell_var, dice_entry, stat_var, mastery_var, twohand_var, twf_var)
         char_rows = []
         STAT_CHOICES = ["str", "dex", "con", "int", "wis", "cha"]
 
@@ -1037,9 +1050,11 @@ class MinimalDNDGUI:
             selected_var = tk.BooleanVar(value=False)
             spell_var    = tk.StringVar(value="None")
             stat_var     = tk.StringVar(value=default_main_stat)
+            mastery_var  = tk.BooleanVar(value=False)
+            twohand_var  = tk.BooleanVar(value=False)
+            twf_var      = tk.BooleanVar(value=False)
 
-            chk = tk.Checkbutton(table_inner, variable=selected_var)
-            chk.grid(row=row_idx, column=0, padx=2)
+            tk.Checkbutton(table_inner, variable=selected_var).grid(row=row_idx, column=0, padx=2)
 
             tk.Label(table_inner, text=name, anchor="w", width=18).grid(
                 row=row_idx, column=1, padx=4, sticky="w"
@@ -1057,7 +1072,11 @@ class MinimalDNDGUI:
             stat_menu.config(width=4)
             stat_menu.grid(row=row_idx, column=4, padx=4)
 
-            char_rows.append((name, selected_var, spell_var, dice_entry, stat_var))
+            tk.Checkbutton(table_inner, variable=mastery_var).grid(row=row_idx, column=5, padx=4)
+            tk.Checkbutton(table_inner, variable=twohand_var).grid(row=row_idx, column=6, padx=4)
+            tk.Checkbutton(table_inner, variable=twf_var).grid(row=row_idx, column=7, padx=4)
+
+            char_rows.append((name, selected_var, spell_var, dice_entry, stat_var, mastery_var, twohand_var, twf_var))
 
         # --- Boss stats ---
         boss_frame = tk.LabelFrame(win, text="Boss Stats")
@@ -1073,7 +1092,7 @@ class MinimalDNDGUI:
         ac_entry.insert(0, "17")
         ac_entry.grid(row=0, column=3, padx=6, pady=4)
 
-        # --- Roll mode + weapon options ---
+        # --- Roll mode ---
         options_frame = tk.Frame(win)
         options_frame.pack(fill="x", padx=10, pady=(2, 0))
 
@@ -1082,12 +1101,6 @@ class MinimalDNDGUI:
         for label, val in [("Normal", "normal"), ("Advantage", "advantage"), ("Disadvantage", "disadvantage")]:
             tk.Radiobutton(options_frame, text=label, variable=mode_var, value=val).pack(side="left", padx=2)
 
-        mastery_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(options_frame, text="Use Mastery", variable=mastery_var).pack(side="left", padx=(16, 2))
-
-        twohanded_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(options_frame, text="Two-Handed", variable=twohanded_var).pack(side="left", padx=2)
-
         # --- Output ---
         out_frame = tk.LabelFrame(win, text="Result")
         out_frame.pack(fill="both", expand=True, padx=10, pady=6)
@@ -1095,7 +1108,11 @@ class MinimalDNDGUI:
         result_text.pack(fill="both", expand=True, padx=6, pady=6)
 
         def estimate():
-            active_rows = [(n, sv, spv, de, stv) for (n, sv, spv, de, stv) in char_rows if sv.get()]
+            active_rows = [
+                (n, sv, spv, de, stv, mv, thv, twfv)
+                for (n, sv, spv, de, stv, mv, thv, twfv) in char_rows
+                if sv.get()
+            ]
             if not active_rows:
                 messagebox.showwarning("No characters", "Check at least one character.", parent=win)
                 return
@@ -1110,7 +1127,7 @@ class MinimalDNDGUI:
             total_dpt = 0.0
             lines = []
 
-            for (name, _sel, spell_var_row, dice_entry_row, stat_var_row) in active_rows:
+            for (name, _sel, spell_var_row, dice_entry_row, stat_var_row, mastery_var_row, twohand_var_row, twf_var_row) in active_rows:
                 char_data = self.characters.get(name, {})
 
                 # Build Character object
@@ -1202,9 +1219,10 @@ class MinimalDNDGUI:
                 a_ctx = AttackContext(
                     stat=stat,
                     magic_bonus=magic_bonus_used,
-                    use_mastery=mastery_var.get(),
-                    two_handed=twohanded_var.get(),
+                    use_mastery=mastery_var_row.get(),
+                    two_handed=twohand_var_row.get(),
                     damage_bonus=0,
+                    use_twf=twf_var_row.get(),
                 )
                 result = weapon_obj.expected_damage(boss_ac, a_ctx)
                 dpt = result.get(mode, 0)
