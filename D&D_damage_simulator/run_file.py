@@ -1050,12 +1050,45 @@ class MinimalDNDGUI:
             anchor="w", padx=10, pady=(10, 0)
         )
 
-        # Outer frame that holds canvas + scrollbar — fills available vertical space
+        # Outer frame — fixed header row + scrollable body side-by-side with one scrollbar
         table_outer = tk.Frame(win)
         table_outer.pack(fill="both", expand=True, padx=10, pady=(0, 4))
 
-        table_canvas = tk.Canvas(table_outer, highlightthickness=0)
-        table_scroll = tk.Scrollbar(table_outer, orient="vertical", command=table_canvas.yview)
+        # --- Fixed header row (outside the canvas, never scrolls) ---
+        header_font = ("TkDefaultFont", 9, "bold")
+        # Column widths must mirror the widths used by the row widgets below.
+        # Using a grid inside a plain Frame placed above the canvas+scrollbar.
+        header_frame = tk.Frame(table_outer)
+        header_frame.pack(side="top", fill="x")
+
+        # Reserve space for the scrollbar on the right so headers align with rows
+        header_inner = tk.Frame(header_frame)
+        header_inner.pack(side="left", fill="x", expand=True)
+        tk.Frame(header_frame, width=16).pack(side="right")  # scrollbar placeholder
+
+        # Columns: In | Character | Spell | Dice | Stat | Mastery | 2H | TWF
+        # Widths chosen to match the row widget sizes set below.
+        _hcols = [
+            ("In",        3,  0,  "center"),
+            ("Character", 18, 1,  "w"),
+            ("Spell",     16, 2,  "center"),
+            ("Dice",      7,  3,  "center"),
+            ("Stat",      5,  4,  "center"),
+            ("Mastery",   6,  5,  "center"),
+            ("2H",        3,  6,  "center"),
+            ("TWF",       3,  7,  "center"),
+        ]
+        for text, w, col, anchor in _hcols:
+            tk.Label(header_inner, text=text, font=header_font, width=w, anchor=anchor).grid(
+                row=0, column=col, padx=4, pady=2
+            )
+
+        # --- Scrollable body ---
+        body_frame = tk.Frame(table_outer)
+        body_frame.pack(side="top", fill="both", expand=True)
+
+        table_canvas = tk.Canvas(body_frame, highlightthickness=0)
+        table_scroll = tk.Scrollbar(body_frame, orient="vertical", command=table_canvas.yview)
         table_canvas.configure(yscrollcommand=table_scroll.set)
         table_scroll.pack(side="right", fill="y")
         table_canvas.pack(side="left", fill="both", expand=True)
@@ -1072,16 +1105,19 @@ class MinimalDNDGUI:
         table_canvas.bind("<Configure>", _on_canvas_resize)
 
         # --- Mousewheel scrolling ---
-        # Use win-level bindings that are active only while the pointer is
-        # inside the table area. This works even when the cursor is over a
-        # child widget (Checkbutton, OptionMenu, Entry) that would otherwise
-        # swallow the event before it reached the canvas.
+        # bind_all on the window while the pointer is inside the table area.
+        # Clamped so scrolling up past the first row is blocked.
+        def _scroll(delta):
+            if delta < 0 and table_canvas.yview()[0] <= 0:
+                return  # already at top, don't scroll further up
+            table_canvas.yview_scroll(delta, "units")
+
         def _on_mousewheel(event):
-            table_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            _scroll(int(-1 * (event.delta / 120)))
         def _on_mousewheel_up(event):
-            table_canvas.yview_scroll(-1, "units")
+            _scroll(-1)
         def _on_mousewheel_down(event):
-            table_canvas.yview_scroll(1, "units")
+            _scroll(1)
 
         def _enable_scroll(event):
             win.bind_all("<MouseWheel>", _on_mousewheel)
@@ -1096,24 +1132,12 @@ class MinimalDNDGUI:
         table_outer.bind("<Enter>", _enable_scroll)
         table_outer.bind("<Leave>", _disable_scroll)
 
-        # Column headers
-        # Columns: In | Character | Spell | Dice | Stat | Mastery | 2H | TWF
-        header_font = ("TkDefaultFont", 9, "bold")
-        tk.Label(table_inner, text="In",        font=header_font, width=3).grid(row=0, column=0, padx=4, pady=2)
-        tk.Label(table_inner, text="Character", font=header_font, anchor="w").grid(row=0, column=1, padx=4, pady=2, sticky="w")
-        tk.Label(table_inner, text="Spell",     font=header_font).grid(row=0, column=2, padx=4, pady=2)
-        tk.Label(table_inner, text="Dice",      font=header_font).grid(row=0, column=3, padx=4, pady=2)
-        tk.Label(table_inner, text="Stat",      font=header_font).grid(row=0, column=4, padx=4, pady=2)
-        tk.Label(table_inner, text="Mastery",   font=header_font).grid(row=0, column=5, padx=4, pady=2)
-        tk.Label(table_inner, text="2H",         font=header_font).grid(row=0, column=6, padx=4, pady=2)
-        tk.Label(table_inner, text="TWF",        font=header_font).grid(row=0, column=7, padx=4, pady=2)
-
-        # One row per character
+        # One row per character (no header row in table_inner — headers are fixed above)
         # Each entry: (name, selected_var, spell_var, dice_entry, stat_var, mastery_var, twohand_var, twf_var)
         char_rows = []
         STAT_CHOICES = ["str", "dex", "con", "int", "wis", "cha"]
 
-        for row_idx, name in enumerate(sorted(self.characters.keys()), start=1):
+        for row_idx, name in enumerate(sorted(self.characters.keys()), start=0):
             char_data = self.characters[name]
             default_main_stat = char_data.get("main_stat", "str")
 
