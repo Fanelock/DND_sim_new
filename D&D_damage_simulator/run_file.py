@@ -1050,14 +1050,12 @@ class MinimalDNDGUI:
             anchor="w", padx=10, pady=(10, 0)
         )
 
-        # Outer frame — fixed header row + scrollable body side-by-side with one scrollbar
+        # Outer frame — fixed header row + scrollable body
         table_outer = tk.Frame(win)
         table_outer.pack(fill="both", expand=True, padx=10, pady=(0, 4))
 
         # --- Fixed header row (outside the canvas, never scrolls) ---
         header_font = ("TkDefaultFont", 9, "bold")
-        # Column widths must mirror the widths used by the row widgets below.
-        # Using a grid inside a plain Frame placed above the canvas+scrollbar.
         header_frame = tk.Frame(table_outer)
         header_frame.pack(side="top", fill="x")
 
@@ -1066,8 +1064,6 @@ class MinimalDNDGUI:
         header_inner.pack(side="left", fill="x", expand=True)
         tk.Frame(header_frame, width=16).pack(side="right")  # scrollbar placeholder
 
-        # Columns: In | Character | Spell | Dice | Stat | Mastery | 2H | TWF
-        # Widths chosen to match the row widget sizes set below.
         _hcols = [
             ("In",        3,  0,  "center"),
             ("Character", 18, 1,  "w"),
@@ -1132,7 +1128,7 @@ class MinimalDNDGUI:
         table_outer.bind("<Enter>", _enable_scroll)
         table_outer.bind("<Leave>", _disable_scroll)
 
-        # One row per character (no header row in table_inner — headers are fixed above)
+        # One row per character (headers are fixed above, not in table_inner)
         # Each entry: (name, selected_var, spell_var, dice_entry, stat_var, mastery_var, twohand_var, twf_var)
         char_rows = []
         STAT_CHOICES = ["str", "dex", "con", "int", "wis", "cha"]
@@ -1225,9 +1221,9 @@ class MinimalDNDGUI:
                 char_obj.default_weapon_name = char_data.get("standard_weapon", "")
                 char_obj.default_weapon_bonus = char_data.get("standard_weapon_bonus", 0)
 
-                stat      = stat_var_row.get()
+                stat           = stat_var_row.get()
                 spell_name_row = spell_var_row.get()
-                dice_str  = dice_entry_row.get().strip()
+                dice_str       = dice_entry_row.get().strip()
 
                 # --- Priority 1: Spell selected ---
                 if spell_name_row != "None":
@@ -1239,8 +1235,6 @@ class MinimalDNDGUI:
                         lines.append(f"{name}: ⚠ Spell selected but no dice entered (e.g. 1d10), skipped.")
                         continue
                     spell_obj = spell_class(char_obj)
-                    # Use the character's stored weapon/spell bonus for the to-hit roll,
-                    # consistent with how the main GUI uses its magic bonus field.
                     spell_magic_bonus = char_data.get("standard_weapon_bonus", 0)
                     s_ctx = SpellContext(
                         stat=stat,
