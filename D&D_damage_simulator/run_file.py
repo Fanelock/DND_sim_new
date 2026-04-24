@@ -450,6 +450,10 @@ class MinimalDNDGUI:
         custom_weapon_dice_entry = tk.Entry(sep, width=10)
         custom_weapon_dice_entry.grid(row=0, column=3, padx=6, pady=2)
 
+        tk.Label(sep, text="Bonus Dice:").grid(row=0, column=4, sticky="w", padx=6, pady=2)
+        custom_weapon_bonus_dice_entry = tk.Entry(sep, width=10)
+        custom_weapon_bonus_dice_entry.grid(row=0, column=5, padx=6, pady=2)
+
         # Only these types affect modifier logic:
         # "Finesse"/"Ranged"/"Light" -> Sneak Attack; "Ranged, Light" -> CBE
         # "Melee" is the generic fallback for everything else
@@ -608,6 +612,7 @@ class MinimalDNDGUI:
             # Collect custom weapon (only save if name and dice are filled)
             cw_name = custom_weapon_name_entry.get().strip()
             cw_dice = custom_weapon_dice_entry.get().strip()
+            cw_bonus_dice = custom_weapon_bonus_dice_entry.get().strip()
             if cw_name and cw_dice:
                 try:
                     cw_bonus = int(custom_weapon_bonus_entry.get().strip() or "0")
@@ -617,6 +622,7 @@ class MinimalDNDGUI:
                 custom_weapon_data = {
                     "name": cw_name,
                     "dice": cw_dice,
+                    "bonus dice": cw_bonus,
                     "weapon_type": custom_weapon_type_var.get(),
                     "magic_bonus": cw_bonus,
                     "mastery": custom_weapon_mastery_var.get(),
