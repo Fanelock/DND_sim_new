@@ -153,8 +153,8 @@ class CustomWeapon(Weapon):
 class MinimalDNDGUI:
     def __init__(self, master):
         self.master = master
-        self.master.title("Minimal DND Expected Damage GUI")
-        self.master.geometry("630x620+50+50")
+        self.master.title("DND Combat Calculator")
+        self.master.geometry("655x645+50+50")
 
         self.weapon_mapping = build_weapon_mapping()
 
@@ -1000,7 +1000,7 @@ class MinimalDNDGUI:
     def open_boss_window(self):
         win = tk.Toplevel(self.master)
         win.title("Boss Fight Estimator")
-        win.geometry("660x620+700+50")
+        win.geometry("655x645+725+50")
 
         spell_choices = ["None"] + sorted(self.spell_mapping.keys())
 
@@ -1038,7 +1038,7 @@ class MinimalDNDGUI:
         hp_entry.grid(row=0, column=1, padx=6, pady=4)
         tk.Label(boss_frame, text="Boss AC:").grid(row=0, column=2, sticky="w", padx=6, pady=4)
         ac_entry = tk.Entry(boss_frame, width=10)
-        ac_entry.insert(0, "17")
+        ac_entry.insert(0, "15")
         ac_entry.grid(row=0, column=3, padx=6, pady=4)
 
         # ----------------------------------------------------------------
