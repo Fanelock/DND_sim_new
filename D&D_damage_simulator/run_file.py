@@ -433,6 +433,11 @@ class MinimalDNDGUI:
         main_stat_var = tk.StringVar(value="str")
         tk.OptionMenu(inner, main_stat_var, *STATS).grid(row=6, column=1, sticky="w", padx=8, pady=2)
 
+        # Row 6: HP
+        tk.Label(inner, text="HP:").grid(row=6, column=2, sticky="w", padx=8, pady=2)
+        HP_entry = tk.Entry(inner)
+        HP_entry.grid(row=6, column=3, sticky="w", padx=8, pady=2)
+
         # ── Custom Weapon section ─────────────────────────────────────────────
         sep = tk.LabelFrame(inner, text="Custom Weapon (overrides Standard Weapon if filled)")
         sep.grid(row=7, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
@@ -550,6 +555,7 @@ class MinimalDNDGUI:
             standard_weapon_bonus_entry.insert(0, str(data.get("standard_weapon_bonus", 0)))
 
             main_stat_var.set(data.get("main_stat", "str"))
+            HP_entry.insert(0, str(data.get("HP", 0)))
 
             # restore custom weapon
             cw = data.get("custom_weapon", {})
@@ -588,6 +594,7 @@ class MinimalDNDGUI:
                 w = int(wis_entry.get().strip())
                 c = int(cha_entry.get().strip())
                 stdb = int(standard_weapon_bonus_entry.get().strip() or "0")
+                hp = int(HP_entry.get().strip())
             except ValueError:
                 messagebox.showerror("Error", "STR/DEX/CHA/etc must be integers.")
                 return
@@ -650,6 +657,7 @@ class MinimalDNDGUI:
                 "standard_weapon": "" if std_weapon == "None" else std_weapon,
                 "standard_weapon_bonus": stdb,
                 "main_stat": main_stat_var.get(),
+                "HP": hp,
                 "custom_weapon": custom_weapon_data,
                 "custom_modifiers": custom_mods_data,
             }
@@ -1018,7 +1026,7 @@ class MinimalDNDGUI:
         # --- Output ---
         out_frame = tk.LabelFrame(win, text="Result")
         out_frame.pack(side="bottom", fill="both", expand=False, padx=10, pady=(0, 4))
-        result_text = tk.Text(out_frame, height=8, wrap="word")
+        result_text = tk.Text(out_frame, height=14, wrap="word")
         result_text.pack(fill="both", expand=True, padx=6, pady=6)
 
         # --- Roll mode ---
@@ -1040,6 +1048,10 @@ class MinimalDNDGUI:
         ac_entry = tk.Entry(boss_frame, width=10)
         ac_entry.insert(0, "15")
         ac_entry.grid(row=0, column=3, padx=6, pady=4)
+        tk.Label(boss_frame, text="Boss Damage (per turn):").grid(row=0, column=4, sticky="w", padx=6, pady=4)
+        boss_damage_entry = tk.Entry(boss_frame, width=10)
+        boss_damage_entry.insert(0, "50")
+        boss_damage_entry.grid(row=0, column=5, padx=6, pady=4)
 
         # ----------------------------------------------------------------
         # Now pack the top label + expanding scrollable character table.
@@ -1052,7 +1064,7 @@ class MinimalDNDGUI:
 
         # Outer frame — fixed header row + scrollable body
         table_outer = tk.Frame(win)
-        table_outer.pack(fill="both", expand=True, padx=10, pady=(0, 4))
+        table_outer.pack(fill="x", expand=True, padx=10, pady=(0, 4))
 
         # --- Fixed header row (outside the canvas, never scrolls) ---
         header_font = ("TkDefaultFont", 9, "bold")
@@ -1083,7 +1095,7 @@ class MinimalDNDGUI:
         body_frame = tk.Frame(table_outer)
         body_frame.pack(side="top", fill="both", expand=True)
 
-        table_canvas = tk.Canvas(body_frame, highlightthickness=0)
+        table_canvas = tk.Canvas(body_frame, highlightthickness=0, height = 220)
         table_scroll = tk.Scrollbar(body_frame, orient="vertical", command=table_canvas.yview)
         table_canvas.configure(yscrollcommand=table_scroll.set)
         table_scroll.pack(side="right", fill="y")
@@ -1180,16 +1192,19 @@ class MinimalDNDGUI:
             try:
                 boss_hp = int(hp_entry.get().strip())
                 boss_ac = int(ac_entry.get().strip())
+                boss_damage = int(boss_damage_entry.get().strip())
             except ValueError:
                 messagebox.showerror("Error", "HP and AC must be integers.", parent=win)
                 return
 
             mode = mode_var.get()
             total_dpt = 0.0
+            party_hp = 0
             lines = []
 
             for (name, _sel, spell_var_row, dice_entry_row, stat_var_row, mastery_var_row, twohand_var_row, twf_var_row) in active_rows:
                 char_data = self.characters.get(name, {})
+                party_hp += int(char_data.get("HP", 0))
 
                 # Build Character object
                 char_obj = Character(
@@ -1293,11 +1308,17 @@ class MinimalDNDGUI:
             if total_dpt <= 0:
                 lines.append("\nCannot estimate (no valid damage).")
             else:
-                rounds = boss_hp / total_dpt
+                rounds_players = boss_hp / total_dpt
+                rounds_boss = party_hp / boss_damage
                 lines.append(f"\nTotal party DPT ({mode}): {total_dpt:.2f}")
                 lines.append(f"Boss HP: {boss_hp}")
-                lines.append(f"Estimated rounds to kill: {rounds:.1f}")
-                lines.append(f"Estimated in-game time:   ~{rounds * 6:.0f} seconds ({rounds / 10:.1f} min)")
+                lines.append(f"Estimated rounds to kill: {rounds_players:.1f}")
+                lines.append(f"Estimated in-game time:   ~{rounds_players * 6:.0f} seconds ({rounds_players / 10:.1f} min)")
+
+                lines.append(f"\nTotal boss DPT: {boss_damage:.2f}")
+                lines.append(f"Party HP: {party_hp}")
+                lines.append(f"Estimated rounds to kill: {rounds_boss:.1f}")
+                lines.append(f"Estimated in-game time:   ~{rounds_boss * 6:.0f} seconds ({rounds_boss / 10:.1f} min)")
 
             result_text.delete("1.0", tk.END)
             result_text.insert(tk.END, "\n".join(lines))
