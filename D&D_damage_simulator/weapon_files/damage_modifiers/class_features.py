@@ -62,7 +62,7 @@ class SneakAttack(DamageModifier):
         if not getattr(context, "allow_sneak", True):
             return damage
 
-        if hit and weapon.weapon_type in ("Finesse", "Ranged", "Light"):
+        if hit and weapon.weapon_type in ("Finesse", "Ranged", "Light", "Ranged, Light"):
             bonus = (3.5 * math.ceil(weapon.owner.lvl / 2))
             if crit:
                 bonus *= 2

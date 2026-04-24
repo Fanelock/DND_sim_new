@@ -453,7 +453,7 @@ class MinimalDNDGUI:
         # Only these types affect modifier logic:
         # "Finesse"/"Ranged"/"Light" -> Sneak Attack; "Ranged, Light" -> CBE
         # "Melee" is the generic fallback for everything else
-        WEAPON_TYPES = ["Melee", "Finesse", "Light", "Ranged", "Ranged, Light"]
+        WEAPON_TYPES = ["Melee", "Two-Handed", "Finesse", "Light", "Ranged", "Ranged, Light"]
         tk.Label(sep, text="Weapon Type:").grid(row=1, column=0, sticky="w", padx=6, pady=2)
         custom_weapon_type_var = tk.StringVar(value="Melee")
         tk.OptionMenu(sep, custom_weapon_type_var, *WEAPON_TYPES).grid(
