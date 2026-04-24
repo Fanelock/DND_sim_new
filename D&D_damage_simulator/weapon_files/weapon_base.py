@@ -71,6 +71,12 @@ class Weapon(ABC):
             normal = m.modify_attack_damage(self, normal, hit=True, crit=False, context=context)
             crit = m.modify_attack_damage(self, crit, hit=True, crit=True, context=context)
 
+        if getattr(self, "bonus_dice", "") and self.bonus_dice.strip():
+            b_num, b_die = parse_dice(self.bonus_dice)
+            bonus_avg = b_num * dice_avg[b_die]
+            normal += bonus_avg
+            crit += bonus_avg
+
         if has_twf:
             if has_twf_style:
                 # TWF fighting style: off-hand INCLUDES stat_mod (that's the benefit of the style)

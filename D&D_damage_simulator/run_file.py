@@ -566,6 +566,7 @@ class MinimalDNDGUI:
             if cw:
                 custom_weapon_name_entry.insert(0, cw.get("name", ""))
                 custom_weapon_dice_entry.insert(0, cw.get("dice", ""))
+                custom_weapon_bonus_dice_entry.insert(0, cw.get("bonus_dice", ""))
                 custom_weapon_type_var.set(cw.get("weapon_type", "Melee"))
                 custom_weapon_bonus_entry.delete(0, tk.END)
                 custom_weapon_bonus_entry.insert(0, str(cw.get("magic_bonus", 0)))
@@ -622,7 +623,7 @@ class MinimalDNDGUI:
                 custom_weapon_data = {
                     "name": cw_name,
                     "dice": cw_dice,
-                    "bonus dice": cw_bonus,
+                    "bonus_dice": cw_bonus_dice,
                     "weapon_type": custom_weapon_type_var.get(),
                     "magic_bonus": cw_bonus,
                     "mastery": custom_weapon_mastery_var.get(),
@@ -868,7 +869,7 @@ class MinimalDNDGUI:
                     name=cw["name"],
                     weapon_type=cw.get("weapon_type", "Melee"),
                     dice=cw["dice"],
-                    bonus_dice=cw.get("bonus dice", ""),
+                    bonus_dice=cw.get("bonus_dice", ""),
                     magic_bonus=cw.get("magic_bonus", 0),
                     mastery_cls=_mastery_cls,
                 )
