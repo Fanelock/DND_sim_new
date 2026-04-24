@@ -107,7 +107,6 @@ def build_subclass_mapping():
         if cls.name != "Base Subclass"
     }
 
-
 def make_custom_modifier(name, to_hit_mod, damage_mod):
     """
     Dynamically creates a DamageModifier subclass from user-defined values.
@@ -140,11 +139,12 @@ class CustomWeapon(Weapon):
     """
     gui_name = "_custom_"  # never appears in weapon dropdown
 
-    def __init__(self, owner, name, weapon_type, dice, magic_bonus=0, mastery_cls=None):
+    def __init__(self, owner, name, weapon_type, dice, magic_bonus=0, mastery_cls=None, bonus_dice =""):
         super().__init__(owner, name, weapon_type, "Custom", dice)
         self._magic_bonus = magic_bonus
         # default_mastery must be a list of classes (same contract as built-in weapons)
         self.default_mastery = [mastery_cls] if mastery_cls is not None else []
+        self.bonus_dice = bonus_dice
 
     def __str__(self):
         return f"{self.name} ({self.weapon_type}): {self.dice_type}"
@@ -868,6 +868,7 @@ class MinimalDNDGUI:
                     name=cw["name"],
                     weapon_type=cw.get("weapon_type", "Melee"),
                     dice=cw["dice"],
+                    bonus_dice=cw.get("bonus dice", ""),
                     magic_bonus=cw.get("magic_bonus", 0),
                     mastery_cls=_mastery_cls,
                 )
