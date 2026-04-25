@@ -1,5 +1,6 @@
 from .spell_base import Spell
 from weapon_files.damage_modifiers.class_features import AgonizingBlast, HuntersMark
+from utils.attack_count import eldritch_blast_modifier
 
 class Eldritch_blast(Spell):
     gui_name = "Eldritch Blast"
@@ -9,6 +10,7 @@ class Eldritch_blast(Spell):
 
     def expected_damage(self, ac, context):
         base = super().expected_damage(ac, context)
+        num_beams = eldritch_blast_modifier(self.owner.lvl)
 
         all_modifiers = list(self.owner.get_modifiers())
         spell_modifiers = [
@@ -24,16 +26,22 @@ class Eldritch_blast(Spell):
             hit = m.modify_attack_damage(self, hit, hit=True, crit=False, context=context)
             crit = m.modify_attack_damage(self, crit, hit=True, crit=True, context=context)
 
+        num_attacks = base.get("num_attacks", 1)
+        hit /= num_attacks
+        crit /= num_attacks
+        hit *= num_beams
+        crit *= num_beams
+
         base['debug']['damage']['hit'] = hit
         base['debug']['damage']['crit'] = crit
 
-        num_attacks = base.get("num_attacks", 1)
+
         miss = base['debug']['damage']['miss']
         br = base['debug']['breakdown']
 
         def ev(mode):
             p = br[mode]
-            return num_attacks * (
+            return  (
                     p["hit"] * hit +
                     p["crit"] * crit +
                     p["miss"] * miss

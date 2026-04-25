@@ -53,8 +53,12 @@ class Weapon(ABC):
             num_attacks = self.owner.class_.get_attack_count(self)
         if any(isinstance(m, ThirstingBlade) for m in applied_modifiers):
             num_attacks = warlock_modifier(self)
-        # TWF adds one extra off-hand attack on top of the main attack count
-        has_twf = any(isinstance(m, TwoWeaponFighting) for m in applied_modifiers)
+        # TWF fighting style modifier: off-hand attack WITH stat_mod (PHB rule for the style)
+        has_twf_style = any(isinstance(m, TwoWeaponFighting) for m in applied_modifiers)
+        # use_twf context flag: bare off-hand attack WITHOUT stat_mod (available to anyone)
+        has_twf_basic = getattr(context, "use_twf", False)
+        # Either source adds the extra attack
+        has_twf = has_twf_style or has_twf_basic
         if has_twf:
             num_attacks += 1
 
@@ -67,9 +71,19 @@ class Weapon(ABC):
             normal = m.modify_attack_damage(self, normal, hit=True, crit=False, context=context)
             crit = m.modify_attack_damage(self, crit, hit=True, crit=True, context=context)
 
-        # TWF off-hand attack does NOT add the ability modifier to damage
+        if getattr(self, "bonus_dice", "") and self.bonus_dice.strip():
+            b_num, b_die = parse_dice(self.bonus_dice)
+            bonus_avg = b_num * dice_avg[b_die]
+            normal += bonus_avg
+            crit += bonus_avg
+
         if has_twf:
-            offhand_normal = num * dice_avg[die] + context.magic_bonus + context.damage_bonus
+            if has_twf_style:
+                # TWF fighting style: off-hand INCLUDES stat_mod (that's the benefit of the style)
+                offhand_normal = num * dice_avg[die] + stat_mod + context.magic_bonus + context.damage_bonus
+            else:
+                # Basic TWF (checkbox only): off-hand does NOT add stat_mod
+                offhand_normal = num * dice_avg[die] + context.magic_bonus + context.damage_bonus
             offhand_crit = offhand_normal + num * dice_avg[die]
             for m in applied_modifiers:
                 if isinstance(m, skip_types):
