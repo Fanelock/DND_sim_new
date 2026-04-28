@@ -3,8 +3,12 @@ from tkinter import filedialog, messagebox
 
 from attack_context import AttackContext
 from character import Character
-from run_file import CustomWeapon, make_custom_modifier
 from spell_context import SpellContext
+
+# NOTE: ``CustomWeapon`` and ``make_custom_modifier`` live in ``run_file``,
+# which itself imports ``BossSimulatorGUI`` from this module. Importing them
+# at module load time would create a circular import, so we resolve them
+# lazily inside ``simulate`` (see below).
 
 
 class BossSimulatorGUI:
@@ -334,6 +338,9 @@ class BossSimulatorGUI:
     # Simulation
     # ------------------------------------------------------------------
     def simulate(self):
+        # Lazy import to avoid the run_file <-> boss_simulator_gui cycle.
+        from run_file import CustomWeapon, make_custom_modifier
+
         # Gather active party members
         active_rows = [
             (n, sv, spv, de, stv, mv, thv, twfv)
