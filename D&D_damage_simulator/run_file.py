@@ -441,6 +441,12 @@ class MinimalDNDGUI:
         HP_entry = tk.Entry(inner)
         HP_entry.grid(row=6, column=3, sticky="w", padx=8, pady=2)
 
+        # Row 6b: AC (used by the boss simulator / encounter simulator)
+        tk.Label(inner, text="AC:").grid(row=6, column=4, sticky="w", padx=8, pady=2)
+        AC_entry = tk.Entry(inner, width=6)
+        AC_entry.insert(0, "10")
+        AC_entry.grid(row=6, column=5, sticky="w", padx=8, pady=2)
+
         # ── Custom Weapon section ─────────────────────────────────────────────
         sep = tk.LabelFrame(inner, text="Custom Weapon (overrides Standard Weapon if filled)")
         sep.grid(row=7, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
@@ -563,6 +569,8 @@ class MinimalDNDGUI:
 
             main_stat_var.set(data.get("main_stat", "str"))
             HP_entry.insert(0, str(data.get("HP", 0)))
+            AC_entry.delete(0, tk.END)
+            AC_entry.insert(0, str(data.get("AC", 10)))
 
             # restore custom weapon
             cw = data.get("custom_weapon", {})
@@ -603,8 +611,9 @@ class MinimalDNDGUI:
                 c = int(cha_entry.get().strip())
                 stdb = int(standard_weapon_bonus_entry.get().strip() or "0")
                 hp = int(HP_entry.get().strip())
+                ac = int(AC_entry.get().strip() or "10")
             except ValueError:
-                messagebox.showerror("Error", "STR/DEX/CHA/etc must be integers.")
+                messagebox.showerror("Error", "STR/DEX/CHA/HP/AC etc must be integers.")
                 return
 
             # Collect selected modifiers
@@ -668,6 +677,7 @@ class MinimalDNDGUI:
                 "standard_weapon_bonus": stdb,
                 "main_stat": main_stat_var.get(),
                 "HP": hp,
+                "AC": ac,
                 "custom_weapon": custom_weapon_data,
                 "custom_modifiers": custom_mods_data,
             }
