@@ -93,6 +93,20 @@ class BossSimulatorGUI:
         self.result_text = tk.Text(out_frame, height=12, wrap="word")
         self.result_text.pack(fill="both", expand=True, padx=6, pady=6)
 
+        # --- Target priority (party AI) ---
+        priority_frame = tk.Frame(self.win)
+        priority_frame.pack(side="bottom", fill="x", padx=10, pady=(2, 0))
+        tk.Label(priority_frame, text="Party Targets:").pack(side="left")
+        self.priority_var = tk.StringVar(value="boss_first")
+        for label, val in [
+            ("Boss First", "boss_first"),
+            ("Adds First", "adds_first"),
+            ("Random", "random"),
+        ]:
+            tk.Radiobutton(priority_frame, text=label, variable=self.priority_var, value=val).pack(
+                side="left", padx=2
+            )
+
         # --- Roll mode ---
         options_frame = tk.Frame(self.win)
         options_frame.pack(side="bottom", fill="x", padx=10, pady=(2, 0))
@@ -122,12 +136,14 @@ class BossSimulatorGUI:
 
         _enemy_hcols = [
             ("In", 3, 0, "center"),
-            ("Name", 15, 1, "w"),
-            ("Role", 8, 2, "center"),
-            ("HP", 6, 3, "center"),
-            ("AC", 5, 4, "center"),
-            ("Damage/Turn", 10, 5, "center"),
-            ("", 3, 6, "center"),  # delete button
+            ("Name", 14, 1, "w"),
+            ("Role", 7, 2, "center"),
+            ("HP", 5, 3, "center"),
+            ("AC", 4, 4, "center"),
+            ("Atks", 4, 5, "center"),
+            ("Dmg/Atk", 7, 6, "center"),
+            ("Init+", 4, 7, "center"),
+            ("", 3, 8, "center"),  # delete button
         ]
         for text, w, col, anchor in _enemy_hcols:
             tk.Label(enemy_header_frame, text=text, font=enemy_header_font, width=w, anchor=anchor).grid(
@@ -156,7 +172,10 @@ class BossSimulatorGUI:
         tk.Button(add_enemy_btn_frame, text="+ Add Enemy", command=lambda: self.add_enemy_row()).pack(side="left")
 
         # Pre-populate with one boss
-        self.add_enemy_row(name="Boss", role="Boss", hp="200", ac="15", damage="50")
+        self.add_enemy_row(
+            name="Boss", role="Boss", hp="200", ac="15",
+            attacks="3", damage="15", init_bonus="2",
+        )
 
     def _on_enemy_configure(self, event):
         self.enemy_canvas.configure(scrollregion=self.enemy_canvas.bbox("all"))
@@ -164,47 +183,59 @@ class BossSimulatorGUI:
     def _on_enemy_canvas_resize(self, event):
         self.enemy_canvas.itemconfig(self._enemy_window, width=event.width)
 
-    def add_enemy_row(self, name="Enemy", role="Add", hp="50", ac="15", damage="10"):
+    def add_enemy_row(self, name="Enemy", role="Add", hp="50", ac="15",
+                      attacks="1", damage="10", init_bonus="0"):
         row_idx = len(self.enemy_rows)
         row_frame = tk.Frame(self.enemy_inner)
-        row_frame.grid(row=row_idx, column=0, columnspan=7, sticky="ew", pady=1)
+        row_frame.grid(row=row_idx, column=0, columnspan=9, sticky="ew", pady=1)
 
         enabled_var = tk.BooleanVar(value=True)
         name_var = tk.StringVar(value=name)
         role_var = tk.StringVar(value=role)
         hp_var = tk.StringVar(value=hp)
         ac_var = tk.StringVar(value=ac)
+        attacks_var = tk.StringVar(value=attacks)
         damage_var = tk.StringVar(value=damage)
+        init_var = tk.StringVar(value=init_bonus)
 
         tk.Checkbutton(row_frame, variable=enabled_var).grid(row=0, column=0, padx=2)
 
-        name_entry = tk.Entry(row_frame, textvariable=name_var, width=15)
+        name_entry = tk.Entry(row_frame, textvariable=name_var, width=14)
         name_entry.grid(row=0, column=1, padx=2)
 
         role_menu = tk.OptionMenu(row_frame, role_var, "Boss", "Add", "Minion")
-        role_menu.config(width=6)
+        role_menu.config(width=5)
         role_menu.grid(row=0, column=2, padx=2)
 
-        hp_entry = tk.Entry(row_frame, textvariable=hp_var, width=6)
+        hp_entry = tk.Entry(row_frame, textvariable=hp_var, width=5)
         hp_entry.grid(row=0, column=3, padx=2)
 
-        ac_entry = tk.Entry(row_frame, textvariable=ac_var, width=5)
+        ac_entry = tk.Entry(row_frame, textvariable=ac_var, width=4)
         ac_entry.grid(row=0, column=4, padx=2)
 
-        damage_entry = tk.Entry(row_frame, textvariable=damage_var, width=10)
-        damage_entry.grid(row=0, column=5, padx=2)
+        attacks_entry = tk.Entry(row_frame, textvariable=attacks_var, width=4)
+        attacks_entry.grid(row=0, column=5, padx=2)
 
-        row_data = (enabled_var, row_frame, name_var, role_var, hp_var, ac_var, damage_var)
+        damage_entry = tk.Entry(row_frame, textvariable=damage_var, width=7)
+        damage_entry.grid(row=0, column=6, padx=2)
+
+        init_entry = tk.Entry(row_frame, textvariable=init_var, width=4)
+        init_entry.grid(row=0, column=7, padx=2)
+
+        row_data = (
+            enabled_var, row_frame, name_var, role_var,
+            hp_var, ac_var, attacks_var, damage_var, init_var,
+        )
 
         def remove_row():
             self.enemy_rows.remove(row_data)
             row_frame.destroy()
             # Re-grid remaining rows
             for idx, (_, frame, *_rest) in enumerate(self.enemy_rows):
-                frame.grid(row=idx, column=0, columnspan=7, sticky="ew", pady=1)
+                frame.grid(row=idx, column=0, columnspan=9, sticky="ew", pady=1)
 
         delete_btn = tk.Button(row_frame, text="✕", command=remove_row, width=2)
-        delete_btn.grid(row=0, column=6, padx=2)
+        delete_btn.grid(row=0, column=8, padx=2)
 
         self.enemy_rows.append(row_data)
 
@@ -338,10 +369,18 @@ class BossSimulatorGUI:
     # Simulation
     # ------------------------------------------------------------------
     def simulate(self):
-        # Lazy import to avoid the run_file <-> boss_simulator_gui cycle.
+        """
+        Run a round-by-round encounter:
+          • deterministic damage-per-attack (computed via expected_damage)
+          • rolled initiative (1d20 + init_bonus)
+          • party uses the chosen target-priority strategy
+          • enemies pick a random living party member per attack
+        """
+        # Lazy imports to avoid the run_file <-> boss_simulator_gui cycle.
         from run_file import CustomWeapon, make_custom_modifier
+        from encounter_simulator import EncounterSimulator, Combatant
 
-        # Gather active party members
+        # ----------------------- Gather party rows ----------------------
         active_rows = [
             (n, sv, spv, de, stv, mv, thv, twfv)
             for (n, sv, spv, de, stv, mv, thv, twfv) in self.char_rows
@@ -351,46 +390,59 @@ class BossSimulatorGUI:
             messagebox.showwarning("No characters", "Check at least one party member.", parent=self.win)
             return
 
-        # Gather active enemies
-        active_enemies = [
-            (name_v.get(), role_v.get(), hp_v.get(), ac_v.get(), dmg_v.get())
-            for (enabled_v, _, name_v, role_v, hp_v, ac_v, dmg_v) in self.enemy_rows
-            if enabled_v.get()
-        ]
+        # ----------------------- Gather enemy rows ----------------------
+        active_enemies = []
+        for (enabled_v, _frame, name_v, role_v, hp_v, ac_v,
+             attacks_v, dmg_v, init_v) in self.enemy_rows:
+            if enabled_v.get():
+                active_enemies.append((
+                    name_v.get(), role_v.get(), hp_v.get(), ac_v.get(),
+                    attacks_v.get(), dmg_v.get(), init_v.get(),
+                ))
         if not active_enemies:
             messagebox.showwarning("No enemies", "Add at least one enemy.", parent=self.win)
             return
 
-        # Validate enemy inputs
+        # Validate + build enemy combatants
         try:
-            validated_enemies = []
-            for name, role, hp_str, ac_str, dmg_str in active_enemies:
-                validated_enemies.append({
-                    "name": name if name else "Enemy",
-                    "role": role,
-                    "hp": int(hp_str),
-                    "ac": int(ac_str),
-                    "damage": float(dmg_str),
-                })
+            enemy_combatants = []
+            for raw_name, role, hp_str, ac_str, atk_str, dmg_str, init_str in active_enemies:
+                enemy_combatants.append(Combatant(
+                    name=raw_name if raw_name else "Enemy",
+                    side="enemy",
+                    hp=int(hp_str),
+                    ac=int(ac_str),
+                    init_bonus=int(init_str) if init_str.strip() else 0,
+                    num_attacks=int(atk_str) if atk_str.strip() else 1,
+                    damage_per_attack=float(dmg_str),
+                    role=role,
+                ))
         except ValueError:
-            messagebox.showerror("Error", "Enemy HP, AC, and Damage must be valid numbers.", parent=self.win)
+            messagebox.showerror(
+                "Error",
+                "Enemy HP, AC, Atks, Dmg/Atk and Init+ must all be valid numbers.",
+                parent=self.win,
+            )
             return
 
         mode = self.mode_var.get()
-        total_dpt = 0.0
-        party_hp = 0
-        lines = []
+        # AC used to compute the player's expected damage. Pick the
+        # average enemy AC so per-attack damage is balanced rather than
+        # tuned to one specific target.
+        avg_ac = sum(e.ac for e in enemy_combatants) / len(enemy_combatants)
 
-        # Calculate party DPT against each enemy AC (using first enemy's AC for now as aggregate)
-        # In a real simulation, you'd pick targets dynamically
-        aggregate_ac = validated_enemies[0]["ac"] if validated_enemies else 15
+        # ----------------------- Build party combatants -----------------
+        party_combatants = []
+        warnings = []
 
-        for (name, _sel, spell_var_row, dice_entry_row, stat_var_row, mastery_var_row, twohand_var_row,
-             twf_var_row) in active_rows:
+        for (name, _sel, spell_var_row, dice_entry_row, stat_var_row,
+             mastery_var_row, twohand_var_row, twf_var_row) in active_rows:
             char_data = self.characters.get(name, {})
-            party_hp += int(char_data.get("HP", 0))
+            char_hp = int(char_data.get("HP", 0))
+            char_dex = int(char_data.get("dex", 0))
+            char_ac = int(char_data.get("AC", 10))
 
-            # Build Character object
+            # Build Character object (same plumbing as before)
             char_obj = Character(
                 lvl=char_data.get("lvl", 0),
                 str_mod=char_data.get("str", 0),
@@ -424,14 +476,19 @@ class BossSimulatorGUI:
             spell_name_row = spell_var_row.get()
             dice_str = dice_entry_row.get().strip()
 
+            # Compute total expected dpt and num_attacks for this character.
+            total_dpt = 0.0
+            num_attacks = 1
+            label = ""
+
             # --- Priority 1: Spell selected ---
             if spell_name_row != "None":
                 spell_class = self.spell_mapping.get(spell_name_row)
                 if spell_class is None:
-                    lines.append(f"{name}: ⚠ Spell '{spell_name_row}' not found, skipped.")
+                    warnings.append(f"{name}: ⚠ Spell '{spell_name_row}' not found, skipped.")
                     continue
                 if not dice_str:
-                    lines.append(f"{name}: ⚠ Spell selected but no dice entered (e.g. 1d10), skipped.")
+                    warnings.append(f"{name}: ⚠ Spell selected but no dice entered (e.g. 1d10), skipped.")
                     continue
                 spell_obj = spell_class(char_obj)
                 spell_magic_bonus = char_data.get("standard_weapon_bonus", 0)
@@ -442,85 +499,110 @@ class BossSimulatorGUI:
                     damage_bonus=0,
                 )
                 try:
-                    result = spell_obj.expected_damage(aggregate_ac, s_ctx)
+                    result = spell_obj.expected_damage(avg_ac, s_ctx)
                 except Exception as e:
-                    lines.append(f"{name}: ⚠ Spell error: {e}")
+                    warnings.append(f"{name}: ⚠ Spell error: {e}")
                     continue
-                dpt = result.get(mode, 0)
-                total_dpt += dpt
-                lines.append(f"{name} [{spell_name_row}]: {dpt:.2f} dmg/turn")
-                continue
+                total_dpt = result.get(mode, 0)
+                num_attacks = result.get("num_attacks", 1) or 1
+                label = spell_name_row
+            else:
+                # --- Priority 2: Custom weapon ---
+                cw = char_data.get("custom_weapon", {})
+                if cw and cw.get("name") and cw.get("dice"):
+                    from weapon_files.damage_modifiers.weapon_masteries import (
+                        WeaponMasteryGraze, WeaponMasteryNick,
+                    )
+                    _mastery_map = {"Graze": WeaponMasteryGraze, "Nick": WeaponMasteryNick}
+                    weapon_obj = CustomWeapon(
+                        owner=char_obj,
+                        name=cw["name"],
+                        weapon_type=cw.get("weapon_type", "Melee"),
+                        dice=cw["dice"],
+                        magic_bonus=cw.get("magic_bonus", 0),
+                        mastery_cls=_mastery_map.get(cw.get("mastery", "None")),
+                    )
+                    magic_bonus_used = cw.get("magic_bonus", 0)
+                else:
+                    # --- Priority 3: Standard weapon ---
+                    weapon_obj = char_obj.get_default_weapon(self.weapon_mapping)
+                    magic_bonus_used = char_data.get("standard_weapon_bonus", 0)
 
-            # --- Priority 2: Custom weapon ---
-            cw = char_data.get("custom_weapon", {})
-            if cw and cw.get("name") and cw.get("dice"):
-                from weapon_files.damage_modifiers.weapon_masteries import WeaponMasteryGraze, WeaponMasteryNick
-                _mastery_map = {"Graze": WeaponMasteryGraze, "Nick": WeaponMasteryNick}
-                weapon_obj = CustomWeapon(
-                    owner=char_obj,
-                    name=cw["name"],
-                    weapon_type=cw.get("weapon_type", "Melee"),
-                    dice=cw["dice"],
-                    magic_bonus=cw.get("magic_bonus", 0),
-                    mastery_cls=_mastery_map.get(cw.get("mastery", "None")),
+                if weapon_obj is None:
+                    warnings.append(f"{name}: ⚠ No spell, no weapon set — skipped.")
+                    continue
+
+                a_ctx = AttackContext(
+                    stat=stat,
+                    magic_bonus=magic_bonus_used,
+                    use_mastery=mastery_var_row.get(),
+                    two_handed=twohand_var_row.get(),
+                    damage_bonus=0,
+                    use_twf=twf_var_row.get(),
                 )
-                magic_bonus_used = cw.get("magic_bonus", 0)
-            else:
-                # --- Priority 3: Standard weapon ---
-                weapon_obj = char_obj.get_default_weapon(self.weapon_mapping)
-                magic_bonus_used = char_data.get("standard_weapon_bonus", 0)
+                result = weapon_obj.expected_damage(avg_ac, a_ctx)
+                total_dpt = result.get(mode, 0)
+                num_attacks = result.get("num_attacks", 1) or 1
+                _class_gui = getattr(type(weapon_obj), "gui_name", "")
+                label = weapon_obj.name if _class_gui == "_custom_" else (_class_gui or weapon_obj.name)
 
-            if weapon_obj is None:
-                lines.append(f"{name}: ⚠ No spell, no weapon set — skipped.")
-                continue
+            # Damage-per-attack: total expected dpt divided across attacks.
+            damage_per_attack = (total_dpt / num_attacks) if num_attacks > 0 else 0.0
 
-            a_ctx = AttackContext(
-                stat=stat,
-                magic_bonus=magic_bonus_used,
-                use_mastery=mastery_var_row.get(),
-                two_handed=twohand_var_row.get(),
-                damage_bonus=0,
-                use_twf=twf_var_row.get(),
+            party_combatants.append(Combatant(
+                name=name,
+                side="party",
+                hp=char_hp,
+                ac=char_ac,
+                init_bonus=char_dex,
+                num_attacks=num_attacks,
+                damage_per_attack=damage_per_attack,
+                label=label,
+            ))
+
+        if not party_combatants:
+            messagebox.showwarning(
+                "No usable characters",
+                "None of the selected characters could be set up. Check the"
+                " warnings in the result panel.",
+                parent=self.win,
             )
-            result = weapon_obj.expected_damage(aggregate_ac, a_ctx)
-            dpt = result.get(mode, 0)
-            total_dpt += dpt
-            _class_gui = getattr(type(weapon_obj), "gui_name", "")
-            weapon_label = weapon_obj.name if _class_gui == "_custom_" else (_class_gui or weapon_obj.name)
-            lines.append(f"{name} [{weapon_label}]: {dpt:.2f} dmg/turn")
+            self.result_text.delete("1.0", tk.END)
+            self.result_text.insert(tk.END, "\n".join(warnings))
+            return
 
-        # Enemy summary
-        total_enemy_hp = sum(e["hp"] for e in validated_enemies)
-        total_enemy_dpt = sum(e["damage"] for e in validated_enemies)
+        # ------------------------ Run encounter -------------------------
+        sim = EncounterSimulator(
+            party=party_combatants,
+            enemies=enemy_combatants,
+            priority=self.priority_var.get(),
+        )
+        result = sim.run()
 
-        lines.append("\n--- Enemy Roster ---")
-        for e in validated_enemies:
-            lines.append(f"  {e['name']} ({e['role']}): HP={e['hp']}, AC={e['ac']}, DPT={e['damage']}")
+        # ----------------------- Render result --------------------------
+        lines = []
+        if warnings:
+            lines.append("--- Setup Warnings ---")
+            lines.extend(warnings)
+            lines.append("")
 
-        if total_dpt <= 0:
-            lines.append("\n⚠ Cannot estimate (no valid party damage).")
-        else:
-            rounds_to_kill_enemies = total_enemy_hp / total_dpt
-            rounds_to_kill_party = party_hp / total_enemy_dpt if total_enemy_dpt > 0 else float('inf')
-
-            lines.append(f"\n--- Aggregate Estimate ---")
-            lines.append(f"Total party DPT ({mode}): {total_dpt:.2f}")
-            lines.append(f"Total enemy HP: {total_enemy_hp}")
-            lines.append(f"Rounds to kill all enemies: {rounds_to_kill_enemies:.1f}")
+        lines.append(
+            f"Mode: {mode}   |   Target priority: {self.priority_var.get()}"
+        )
+        lines.append("--- Party ---")
+        for c in party_combatants:
             lines.append(
-                f"Estimated time: ~{rounds_to_kill_enemies * 6:.0f} sec ({rounds_to_kill_enemies / 10:.1f} min)")
-
-            lines.append(f"\nTotal enemy DPT: {total_enemy_dpt:.2f}")
-            lines.append(f"Party HP: {party_hp}")
-            lines.append(f"Rounds to kill party: {rounds_to_kill_party:.1f}")
-            lines.append(f"Estimated time: ~{rounds_to_kill_party * 6:.0f} sec ({rounds_to_kill_party / 10:.1f} min)")
-
-            if rounds_to_kill_enemies < rounds_to_kill_party:
-                lines.append(f"\n✓ Party wins (kills enemies in {rounds_to_kill_enemies:.1f} rounds)")
-            elif rounds_to_kill_party < rounds_to_kill_enemies:
-                lines.append(f"\n✗ Enemies win (kills party in {rounds_to_kill_party:.1f} rounds)")
-            else:
-                lines.append("\n⚔ Mutual destruction (tie)")
+                f"  {c.name} [{c.label}]: HP={c.hp}, AC={c.ac}, init+={c.init_bonus}, "
+                f"{c.num_attacks} atk × {c.damage_per_attack:.2f} dmg"
+            )
+        lines.append("--- Enemies ---")
+        for c in enemy_combatants:
+            lines.append(
+                f"  {c.name} ({c.role}): HP={c.hp}, AC={c.ac}, init+={c.init_bonus}, "
+                f"{c.num_attacks} atk × {c.damage_per_attack:.2f} dmg"
+            )
+        lines.append("")
+        lines.extend(result["log"])
 
         self.result_text.delete("1.0", tk.END)
         self.result_text.insert(tk.END, "\n".join(lines))
