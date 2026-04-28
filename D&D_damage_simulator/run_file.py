@@ -9,6 +9,8 @@ import importlib
 import sys
 import pathlib
 
+from boss_simulator_gui import open_simulator_window
+
 # When running as a PyInstaller .exe, sys._MEIPASS contains the extracted
 # bundle directory. We add it to sys.path so that package imports such as
 # class_files, weapon_files, spell_files etc. are found at runtime.
@@ -275,6 +277,7 @@ class MinimalDNDGUI:
         tk.Button(run_frame, text="Compute Expected Damage", command=self.run_expected_damage).pack(side="left", padx=6)
         tk.Button(run_frame, text="Show Raw Result (debug)", command=self.show_last_result).pack(side="left", padx=6)
         tk.Button(run_frame, text="Boss Fight Estimator", command=self.open_boss_window).pack(side="left", padx=6)
+        tk.Button(run_frame, text="Boss Fight Simulator", command=self.open_simulator_window).pack(side="left", padx=6)
 
         # Output area
         out_frame = tk.LabelFrame(master, text="Result")
@@ -1332,6 +1335,9 @@ class MinimalDNDGUI:
             result_text.insert(tk.END, "\n".join(lines))
 
         estimate_btn.config(command=estimate)
+
+    def open_simulator_window(self):
+        open_simulator_window(self)
 
 def main():
     root = tk.Tk()
