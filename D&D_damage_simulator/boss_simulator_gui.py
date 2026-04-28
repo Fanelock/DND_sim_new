@@ -134,21 +134,30 @@ class BossSimulatorGUI:
         enemy_header_frame = tk.Frame(enemy_outer_frame)
         enemy_header_frame.pack(side="top", fill="x", padx=4, pady=(4, 0))
 
-        _enemy_hcols = [
-            ("In", 3, 0, "center"),
-            ("Name", 14, 1, "w"),
-            ("Role", 7, 2, "center"),
-            ("HP", 5, 3, "center"),
-            ("AC", 4, 4, "center"),
-            ("Atks", 4, 5, "center"),
-            ("Dmg/Atk", 7, 6, "center"),
-            ("Init+", 4, 7, "center"),
-            ("", 3, 8, "center"),  # delete button
-        ]
-        for text, w, col, anchor in _enemy_hcols:
-            tk.Label(enemy_header_frame, text=text, font=enemy_header_font, width=w, anchor=anchor).grid(
-                row=0, column=col, padx=2, pady=2
-            )
+        # Match header columns to row widget widths
+        enemy_col_widths = {
+            0: 30,  # In
+            1: 120,  # Name
+            2: 90,  # Role
+            3: 70,  # HP
+            4: 70,  # AC
+            5: 70,  # To hit
+            6: 70,  # Atks
+            7: 70,  # Dmg/Atk
+            8: 70,  # Init+
+            9: 36,  # Delete
+        }
+        for col, minsize in enemy_col_widths.items():
+            enemy_header_frame.grid_columnconfigure(col, minsize=minsize)
+
+        headers = ["In", "Name", "Role", "HP", "AC", "To hit", "Atks", "Dmg/Atk", "Init+", ""]
+        for col, text in enumerate(headers):
+            tk.Label(
+                enemy_header_frame,
+                text=text,
+                font=enemy_header_font,
+                anchor="w",
+            ).grid(row=0, column=col, padx=2, pady=2, sticky="w")
 
         # Scrollable enemy rows
         enemy_canvas_frame = tk.Frame(enemy_outer_frame)
@@ -166,14 +175,12 @@ class BossSimulatorGUI:
         self.enemy_inner.bind("<Configure>", self._on_enemy_configure)
         self.enemy_canvas.bind("<Configure>", self._on_enemy_canvas_resize)
 
-        # Add enemy button
         add_enemy_btn_frame = tk.Frame(enemy_outer_frame)
         add_enemy_btn_frame.pack(side="bottom", fill="x", padx=4, pady=4)
         tk.Button(add_enemy_btn_frame, text="+ Add Enemy", command=lambda: self.add_enemy_row()).pack(side="left")
 
-        # Pre-populate with one boss
         self.add_enemy_row(
-            name="Boss", role="Boss", hp="200", ac="15",
+            name="Boss", role="Boss", hp="200", ac="15", to_hit="3",
             attacks="3", damage="15", init_bonus="2",
         )
 
@@ -183,17 +190,32 @@ class BossSimulatorGUI:
     def _on_enemy_canvas_resize(self, event):
         self.enemy_canvas.itemconfig(self._enemy_window, width=event.width)
 
-    def add_enemy_row(self, name="Enemy", role="Add", hp="50", ac="15",
-                      attacks="1", damage="10", init_bonus="0"):
+    def add_enemy_row(self, name="Enemy", role="Add", hp="50", ac="15", to_hit = "2", attacks="1", damage="10", init_bonus="0"):
         row_idx = len(self.enemy_rows)
         row_frame = tk.Frame(self.enemy_inner)
-        row_frame.grid(row=row_idx, column=0, columnspan=9, sticky="ew", pady=1)
+        row_frame.grid(row=row_idx, column=0, columnspan=10, sticky="ew", pady=1)
+
+        enemy_col_widths = {
+            0: 30,
+            1: 120,
+            2: 90,
+            3: 70,
+            4: 70,
+            5: 70,
+            6: 70,
+            7: 70,
+            8: 70,
+            9: 36,
+        }
+        for col, minsize in enemy_col_widths.items():
+            row_frame.grid_columnconfigure(col, minsize=minsize)
 
         enabled_var = tk.BooleanVar(value=True)
         name_var = tk.StringVar(value=name)
         role_var = tk.StringVar(value=role)
         hp_var = tk.StringVar(value=hp)
         ac_var = tk.StringVar(value=ac)
+        to_hit_var = tk.StringVar(value=to_hit)
         attacks_var = tk.StringVar(value=attacks)
         damage_var = tk.StringVar(value=damage)
         init_var = tk.StringVar(value=init_bonus)
@@ -207,24 +229,27 @@ class BossSimulatorGUI:
         role_menu.config(width=5)
         role_menu.grid(row=0, column=2, padx=2)
 
-        hp_entry = tk.Entry(row_frame, textvariable=hp_var, width=5)
+        hp_entry = tk.Entry(row_frame, textvariable=hp_var, width=9)
         hp_entry.grid(row=0, column=3, padx=2)
 
-        ac_entry = tk.Entry(row_frame, textvariable=ac_var, width=4)
+        ac_entry = tk.Entry(row_frame, textvariable=ac_var, width=9)
         ac_entry.grid(row=0, column=4, padx=2)
 
-        attacks_entry = tk.Entry(row_frame, textvariable=attacks_var, width=4)
-        attacks_entry.grid(row=0, column=5, padx=2)
+        to_hit_entry = tk.Entry(row_frame, textvariable=to_hit_var, width=9)
+        to_hit_entry.grid(row=0, column=5, padx=2)
 
-        damage_entry = tk.Entry(row_frame, textvariable=damage_var, width=7)
-        damage_entry.grid(row=0, column=6, padx=2)
+        attacks_entry = tk.Entry(row_frame, textvariable=attacks_var, width=9)
+        attacks_entry.grid(row=0, column=6, padx=2)
 
-        init_entry = tk.Entry(row_frame, textvariable=init_var, width=4)
-        init_entry.grid(row=0, column=7, padx=2)
+        damage_entry = tk.Entry(row_frame, textvariable=damage_var, width=9)
+        damage_entry.grid(row=0, column=7, padx=2)
+
+        init_entry = tk.Entry(row_frame, textvariable=init_var, width=9)
+        init_entry.grid(row=0, column=8, padx=2)
 
         row_data = (
             enabled_var, row_frame, name_var, role_var,
-            hp_var, ac_var, attacks_var, damage_var, init_var,
+            hp_var, ac_var, to_hit_var, attacks_var, damage_var, init_var,
         )
 
         def remove_row():
@@ -232,10 +257,10 @@ class BossSimulatorGUI:
             row_frame.destroy()
             # Re-grid remaining rows
             for idx, (_, frame, *_rest) in enumerate(self.enemy_rows):
-                frame.grid(row=idx, column=0, columnspan=9, sticky="ew", pady=1)
+                frame.grid(row=idx, column=0, columnspan=10, sticky="ew", pady=1)
 
         delete_btn = tk.Button(row_frame, text="✕", command=remove_row, width=2)
-        delete_btn.grid(row=0, column=8, padx=2)
+        delete_btn.grid(row=0, column=9, padx=2)
 
         self.enemy_rows.append(row_data)
 
@@ -392,11 +417,11 @@ class BossSimulatorGUI:
 
         # ----------------------- Gather enemy rows ----------------------
         active_enemies = []
-        for (enabled_v, _frame, name_v, role_v, hp_v, ac_v,
+        for (enabled_v, _frame, name_v, role_v, hp_v, ac_v, to_hit_v,
              attacks_v, dmg_v, init_v) in self.enemy_rows:
             if enabled_v.get():
                 active_enemies.append((
-                    name_v.get(), role_v.get(), hp_v.get(), ac_v.get(),
+                    name_v.get(), role_v.get(), hp_v.get(), ac_v.get(), to_hit_v.get(),
                     attacks_v.get(), dmg_v.get(), init_v.get(),
                 ))
         if not active_enemies:
@@ -406,13 +431,14 @@ class BossSimulatorGUI:
         # Validate + build enemy combatants
         try:
             enemy_combatants = []
-            for raw_name, role, hp_str, ac_str, atk_str, dmg_str, init_str in active_enemies:
+            for raw_name, role, hp_str, ac_str, to_hit_str, atk_str, dmg_str, init_str in active_enemies:
                 enemy_combatants.append(Combatant(
                     name=raw_name if raw_name else "Enemy",
                     side="enemy",
                     hp=int(hp_str),
                     ac=int(ac_str),
                     init_bonus=int(init_str) if init_str.strip() else 0,
+                    to_hit=int(to_hit_str) if init_str.strip() else 2,
                     num_attacks=int(atk_str) if atk_str.strip() else 1,
                     damage_per_attack=float(dmg_str),
                     role=role,
@@ -420,7 +446,7 @@ class BossSimulatorGUI:
         except ValueError:
             messagebox.showerror(
                 "Error",
-                "Enemy HP, AC, Atks, Dmg/Atk and Init+ must all be valid numbers.",
+                "Enemy HP, AC, To Hit, Atks, Dmg/Atk and Init+ must all be valid numbers.",
                 parent=self.win,
             )
             return
@@ -441,6 +467,7 @@ class BossSimulatorGUI:
             char_hp = int(char_data.get("HP", 0))
             char_dex = int(char_data.get("dex", 0))
             char_ac = int(char_data.get("AC", 10))
+            char_init_bonus = int(char_data.get("init_bonus", 0))
 
             # Build Character object (same plumbing as before)
             char_obj = Character(
@@ -554,7 +581,8 @@ class BossSimulatorGUI:
                 side="party",
                 hp=char_hp,
                 ac=char_ac,
-                init_bonus=char_dex,
+                to_hit=0,
+                init_bonus=char_dex + char_init_bonus,
                 num_attacks=num_attacks,
                 damage_per_attack=damage_per_attack,
                 label=label,

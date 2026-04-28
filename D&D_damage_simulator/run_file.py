@@ -276,7 +276,6 @@ class MinimalDNDGUI:
         run_frame.pack(fill="x", padx=8, pady=(8,0))
         tk.Button(run_frame, text="Compute Expected Damage", command=self.run_expected_damage).pack(side="left", padx=6)
         tk.Button(run_frame, text="Show Raw Result (debug)", command=self.show_last_result).pack(side="left", padx=6)
-        tk.Button(run_frame, text="Boss Fight Estimator", command=self.open_boss_window).pack(side="left", padx=6)
         tk.Button(run_frame, text="Boss Fight Simulator", command=self.open_simulator_window).pack(side="left", padx=6)
 
         # Output area
@@ -441,15 +440,21 @@ class MinimalDNDGUI:
         HP_entry = tk.Entry(inner)
         HP_entry.grid(row=6, column=3, sticky="w", padx=8, pady=2)
 
-        # Row 6b: AC (used by the boss simulator / encounter simulator)
-        tk.Label(inner, text="AC:").grid(row=6, column=4, sticky="w", padx=8, pady=2)
+        # Row 7a: AC (used by the boss simulator / encounter simulator)
+        tk.Label(inner, text="AC:").grid(row=7, column=0, sticky="w", padx=8, pady=2)
         AC_entry = tk.Entry(inner, width=6)
         AC_entry.insert(0, "10")
-        AC_entry.grid(row=6, column=5, sticky="w", padx=8, pady=2)
+        AC_entry.grid(row=7, column=1, sticky="w", padx=8, pady=2)
+
+        # Row 7b: Init-bonus (used by the boss simulator / encounter simulator)
+        tk.Label(inner, text="Init-bonus:").grid(row=7, column=2, sticky="w", padx=8, pady=2)
+        init_bonus_entry = tk.Entry(inner, width=6)
+        init_bonus_entry.insert(0, "0")
+        init_bonus_entry.grid(row=7, column=3, sticky="w", padx=8, pady=2)
 
         # ── Custom Weapon section ─────────────────────────────────────────────
         sep = tk.LabelFrame(inner, text="Custom Weapon (overrides Standard Weapon if filled)")
-        sep.grid(row=7, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
+        sep.grid(row=8, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
 
         tk.Label(sep, text="Name:").grid(row=0, column=0, sticky="w", padx=6, pady=2)
         custom_weapon_name_entry = tk.Entry(sep, width=14)
@@ -486,7 +491,7 @@ class MinimalDNDGUI:
         # ── Custom Modifiers / Feats section ──────────────────────────────────
         custom_mod_frame = tk.LabelFrame(
             inner, text="Custom Feats / Damage Modifiers (to-hit and damage offsets)")
-        custom_mod_frame.grid(row=8, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
+        custom_mod_frame.grid(row=9, column=0, columnspan=4, sticky="ew", padx=8, pady=(10, 2))
 
         # We keep a list of (name_var, to_hit_var, damage_var) rows
         custom_mod_rows = []
@@ -532,7 +537,7 @@ class MinimalDNDGUI:
             mod_by_cat[cls.category].append(name)
 
         category_order = ["Fighting Style", "Feat", "Class Feature Manual", "Other"]
-        row_offset = 9
+        row_offset = 10
         for cat in category_order:
             mods = mod_by_cat.get(cat, [])
             if not mods:
@@ -571,6 +576,8 @@ class MinimalDNDGUI:
             HP_entry.insert(0, str(data.get("HP", 0)))
             AC_entry.delete(0, tk.END)
             AC_entry.insert(0, str(data.get("AC", 10)))
+            init_bonus_entry.delete(0, tk.END)
+            init_bonus_entry.insert(0, str(data.get("init_bonus", 0)))
 
             # restore custom weapon
             cw = data.get("custom_weapon", {})
@@ -612,6 +619,7 @@ class MinimalDNDGUI:
                 stdb = int(standard_weapon_bonus_entry.get().strip() or "0")
                 hp = int(HP_entry.get().strip())
                 ac = int(AC_entry.get().strip() or "10")
+                init_bonus = int(init_bonus_entry.get().strip() or "0")
             except ValueError:
                 messagebox.showerror("Error", "STR/DEX/CHA/HP/AC etc must be integers.")
                 return
@@ -678,6 +686,7 @@ class MinimalDNDGUI:
                 "main_stat": main_stat_var.get(),
                 "HP": hp,
                 "AC": ac,
+                "init_bonus": init_bonus,
                 "custom_weapon": custom_weapon_data,
                 "custom_modifiers": custom_mods_data,
             }
@@ -1025,326 +1034,6 @@ class MinimalDNDGUI:
 
         text.insert("1.0", "\n".join(lines))
         text.config(state="disabled")
-
-    def open_boss_window(self):
-        win = tk.Toplevel(self.master)
-        win.title("Boss Fight Estimator")
-        win.geometry("655x645+725+50")
-
-        spell_choices = ["None"] + sorted(self.spell_mapping.keys())
-
-        # ----------------------------------------------------------------
-        # Pack bottom widgets FIRST so tkinter reserves their space before
-        # the expanding character table claims any remaining room.
-        # ----------------------------------------------------------------
-
-        # --- Estimate button (very bottom) ---
-        btn_frame = tk.Frame(win)
-        btn_frame.pack(side="bottom", fill="x", padx=10, pady=4)
-        estimate_btn = tk.Button(btn_frame, text="Estimate Fight Duration")
-        estimate_btn.pack(pady=2)
-
-        # --- Output ---
-        out_frame = tk.LabelFrame(win, text="Result")
-        out_frame.pack(side="bottom", fill="both", expand=False, padx=10, pady=(0, 4))
-        result_text = tk.Text(out_frame, height=14, wrap="word")
-        result_text.pack(fill="both", expand=True, padx=6, pady=6)
-
-        # --- Roll mode ---
-        options_frame = tk.Frame(win)
-        options_frame.pack(side="bottom", fill="x", padx=10, pady=(2, 0))
-        tk.Label(options_frame, text="Roll Mode:").pack(side="left")
-        mode_var = tk.StringVar(value="normal")
-        for label, val in [("Normal", "normal"), ("Advantage", "advantage"), ("Disadvantage", "disadvantage")]:
-            tk.Radiobutton(options_frame, text=label, variable=mode_var, value=val).pack(side="left", padx=2)
-
-        # --- Boss stats ---
-        boss_frame = tk.LabelFrame(win, text="Boss Stats")
-        boss_frame.pack(side="bottom", fill="x", padx=10, pady=6)
-        tk.Label(boss_frame, text="Boss HP:").grid(row=0, column=0, sticky="w", padx=6, pady=4)
-        hp_entry = tk.Entry(boss_frame, width=10)
-        hp_entry.insert(0, "200")
-        hp_entry.grid(row=0, column=1, padx=6, pady=4)
-        tk.Label(boss_frame, text="Boss AC:").grid(row=0, column=2, sticky="w", padx=6, pady=4)
-        ac_entry = tk.Entry(boss_frame, width=10)
-        ac_entry.insert(0, "15")
-        ac_entry.grid(row=0, column=3, padx=6, pady=4)
-        tk.Label(boss_frame, text="Boss Damage (per turn):").grid(row=0, column=4, sticky="w", padx=6, pady=4)
-        boss_damage_entry = tk.Entry(boss_frame, width=10)
-        boss_damage_entry.insert(0, "50")
-        boss_damage_entry.grid(row=0, column=5, padx=6, pady=4)
-
-        # ----------------------------------------------------------------
-        # Now pack the top label + expanding scrollable character table.
-        # ----------------------------------------------------------------
-
-        # --- Character table with per-character controls ---
-        tk.Label(win, text="Select characters and configure options for the fight:").pack(
-            anchor="w", padx=10, pady=(10, 0)
-        )
-
-        # Outer frame — fixed header row + scrollable body
-        table_outer = tk.Frame(win)
-        table_outer.pack(fill="x", expand=True, padx=10, pady=(0, 4))
-
-        # --- Fixed header row (outside the canvas, never scrolls) ---
-        header_font = ("TkDefaultFont", 9, "bold")
-        header_frame = tk.Frame(table_outer)
-        header_frame.pack(side="top", fill="x")
-
-        # Reserve space for the scrollbar on the right so headers align with rows
-        header_inner = tk.Frame(header_frame)
-        header_inner.pack(side="left", fill="x", expand=True)
-        tk.Frame(header_frame, width=16).pack(side="right")  # scrollbar placeholder
-
-        _hcols = [
-            ("In",        3,  0,  "center"),
-            ("Character", 18, 1,  "w"),
-            ("Spell",     16, 2,  "center"),
-            ("Dice",      7,  3,  "center"),
-            ("Stat",      5,  4,  "center"),
-            ("Mastery",   6,  5,  "center"),
-            ("2H",        3,  6,  "center"),
-            ("TWF",       3,  7,  "center"),
-        ]
-        for text, w, col, anchor in _hcols:
-            tk.Label(header_inner, text=text, font=header_font, width=w, anchor=anchor).grid(
-                row=0, column=col, padx=4, pady=2
-            )
-
-        # --- Scrollable body ---
-        body_frame = tk.Frame(table_outer)
-        body_frame.pack(side="top", fill="both", expand=True)
-
-        table_canvas = tk.Canvas(body_frame, highlightthickness=0, height = 220)
-        table_scroll = tk.Scrollbar(body_frame, orient="vertical", command=table_canvas.yview)
-        table_canvas.configure(yscrollcommand=table_scroll.set)
-        table_scroll.pack(side="right", fill="y")
-        table_canvas.pack(side="left", fill="both", expand=True)
-
-        table_inner = tk.Frame(table_canvas)
-        _table_window = table_canvas.create_window((0, 0), window=table_inner, anchor="nw")
-
-        def _on_table_configure(event):
-            table_canvas.configure(scrollregion=table_canvas.bbox("all"))
-        table_inner.bind("<Configure>", _on_table_configure)
-
-        def _on_canvas_resize(event):
-            table_canvas.itemconfig(_table_window, width=event.width)
-        table_canvas.bind("<Configure>", _on_canvas_resize)
-
-        # --- Mousewheel scrolling ---
-        # bind_all on the window while the pointer is inside the table area.
-        # Clamped so scrolling up past the first row is blocked.
-        def _scroll(delta):
-            if delta < 0 and table_canvas.yview()[0] <= 0:
-                return  # already at top, don't scroll further up
-            table_canvas.yview_scroll(delta, "units")
-
-        def _on_mousewheel(event):
-            _scroll(int(-1 * (event.delta / 120)))
-        def _on_mousewheel_up(event):
-            _scroll(-1)
-        def _on_mousewheel_down(event):
-            _scroll(1)
-
-        def _enable_scroll(event):
-            win.bind_all("<MouseWheel>", _on_mousewheel)
-            win.bind_all("<Button-4>",   _on_mousewheel_up)
-            win.bind_all("<Button-5>",   _on_mousewheel_down)
-
-        def _disable_scroll(event):
-            win.unbind_all("<MouseWheel>")
-            win.unbind_all("<Button-4>")
-            win.unbind_all("<Button-5>")
-
-        table_outer.bind("<Enter>", _enable_scroll)
-        table_outer.bind("<Leave>", _disable_scroll)
-
-        # One row per character (headers are fixed above, not in table_inner)
-        # Each entry: (name, selected_var, spell_var, dice_entry, stat_var, mastery_var, twohand_var, twf_var)
-        char_rows = []
-        STAT_CHOICES = ["str", "dex", "con", "int", "wis", "cha"]
-
-        for row_idx, name in enumerate(sorted(self.characters.keys()), start=0):
-            char_data = self.characters[name]
-            default_main_stat = char_data.get("main_stat", "str")
-
-            selected_var = tk.BooleanVar(value=False)
-            spell_var    = tk.StringVar(value="None")
-            stat_var     = tk.StringVar(value=default_main_stat)
-            mastery_var  = tk.BooleanVar(value=False)
-            twohand_var  = tk.BooleanVar(value=False)
-            twf_var      = tk.BooleanVar(value=False)
-
-            tk.Checkbutton(table_inner, variable=selected_var).grid(row=row_idx, column=0, padx=2)
-
-            tk.Label(table_inner, text=name, anchor="w", width=18).grid(
-                row=row_idx, column=1, padx=4, sticky="w"
-            )
-
-            spell_menu = tk.OptionMenu(table_inner, spell_var, *spell_choices)
-            spell_menu.config(width=14)
-            spell_menu.grid(row=row_idx, column=2, padx=4)
-
-            dice_entry = tk.Entry(table_inner, width=7)
-            dice_entry.insert(0, "")
-            dice_entry.grid(row=row_idx, column=3, padx=4)
-
-            stat_menu = tk.OptionMenu(table_inner, stat_var, *STAT_CHOICES)
-            stat_menu.config(width=4)
-            stat_menu.grid(row=row_idx, column=4, padx=4)
-
-            tk.Checkbutton(table_inner, variable=mastery_var).grid(row=row_idx, column=5, padx=4)
-            tk.Checkbutton(table_inner, variable=twohand_var).grid(row=row_idx, column=6, padx=4)
-            tk.Checkbutton(table_inner, variable=twf_var).grid(row=row_idx, column=7, padx=4)
-
-            char_rows.append((name, selected_var, spell_var, dice_entry, stat_var, mastery_var, twohand_var, twf_var))
-
-        def estimate():
-            active_rows = [
-                (n, sv, spv, de, stv, mv, thv, twfv)
-                for (n, sv, spv, de, stv, mv, thv, twfv) in char_rows
-                if sv.get()
-            ]
-            if not active_rows:
-                messagebox.showwarning("No characters", "Check at least one character.", parent=win)
-                return
-            try:
-                boss_hp = int(hp_entry.get().strip())
-                boss_ac = int(ac_entry.get().strip())
-                boss_damage = int(boss_damage_entry.get().strip())
-            except ValueError:
-                messagebox.showerror("Error", "HP and AC must be integers.", parent=win)
-                return
-
-            mode = mode_var.get()
-            total_dpt = 0.0
-            party_hp = 0
-            lines = []
-
-            for (name, _sel, spell_var_row, dice_entry_row, stat_var_row, mastery_var_row, twohand_var_row, twf_var_row) in active_rows:
-                char_data = self.characters.get(name, {})
-                party_hp += int(char_data.get("HP", 0))
-
-                # Build Character object
-                char_obj = Character(
-                    lvl=char_data.get("lvl", 0),
-                    str_mod=char_data.get("str", 0),
-                    dex_mod=char_data.get("dex", 0),
-                    cha_mod=char_data.get("cha", 0),
-                    wis_mod=char_data.get("wis", 0),
-                    con_mod=char_data.get("con", 0),
-                    int_mod=char_data.get("int", 0),
-                )
-                char_obj.clear_modifiers()
-                cls_name = char_data.get("class", "")
-                cls_cls = self.class_mapping.get(cls_name)
-                if cls_cls:
-                    char_obj.set_class(cls_cls)
-                sub_name = char_data.get("subclass", "")
-                sub_cls = self.subclass_mapping.get(sub_name)
-                if sub_cls:
-                    char_obj.set_subclass(sub_cls)
-                char_obj.apply_class_features()
-                for mod_name in char_data.get("modifiers", []):
-                    mod_cls = self.modifier_mapping.get(mod_name)
-                    if mod_cls:
-                        char_obj.add_modifier(mod_cls)
-                for cm in char_data.get("custom_modifiers", []):
-                    dyn = make_custom_modifier(cm["name"], cm.get("to_hit", 0), cm.get("damage", 0))
-                    char_obj.add_modifier(dyn)
-                char_obj.default_weapon_name = char_data.get("standard_weapon", "")
-                char_obj.default_weapon_bonus = char_data.get("standard_weapon_bonus", 0)
-
-                stat           = stat_var_row.get()
-                spell_name_row = spell_var_row.get()
-                dice_str       = dice_entry_row.get().strip()
-
-                # --- Priority 1: Spell selected ---
-                if spell_name_row != "None":
-                    spell_class = self.spell_mapping.get(spell_name_row)
-                    if spell_class is None:
-                        lines.append(f"{name}: ⚠ Spell '{spell_name_row}' not found, skipped.")
-                        continue
-                    if not dice_str:
-                        lines.append(f"{name}: ⚠ Spell selected but no dice entered (e.g. 1d10), skipped.")
-                        continue
-                    spell_obj = spell_class(char_obj)
-                    spell_magic_bonus = char_data.get("standard_weapon_bonus", 0)
-                    s_ctx = SpellContext(
-                        stat=stat,
-                        magic_bonus=spell_magic_bonus,
-                        dice=dice_str,
-                        damage_bonus=0,
-                    )
-                    try:
-                        result = spell_obj.expected_damage(boss_ac, s_ctx)
-                    except Exception as e:
-                        lines.append(f"{name}: ⚠ Spell error: {e}")
-                        continue
-                    dpt = result.get(mode, 0)
-                    total_dpt += dpt
-                    lines.append(f"{name} [{spell_name_row}]: {dpt:.2f} dmg/turn")
-                    continue
-
-                # --- Priority 2: Custom weapon ---
-                cw = char_data.get("custom_weapon", {})
-                if cw and cw.get("name") and cw.get("dice"):
-                    from weapon_files.damage_modifiers.weapon_masteries import WeaponMasteryGraze, WeaponMasteryNick
-                    _mastery_map = {"Graze": WeaponMasteryGraze, "Nick": WeaponMasteryNick}
-                    weapon_obj = CustomWeapon(
-                        owner=char_obj,
-                        name=cw["name"],
-                        weapon_type=cw.get("weapon_type", "Melee"),
-                        dice=cw["dice"],
-                        magic_bonus=cw.get("magic_bonus", 0),
-                        mastery_cls=_mastery_map.get(cw.get("mastery", "None")),
-                    )
-                    magic_bonus_used = cw.get("magic_bonus", 0)
-                else:
-                    # --- Priority 3: Standard weapon ---
-                    weapon_obj = char_obj.get_default_weapon(self.weapon_mapping)
-                    magic_bonus_used = char_data.get("standard_weapon_bonus", 0)
-
-                if weapon_obj is None:
-                    lines.append(f"{name}: ⚠ No spell, no weapon set — skipped.")
-                    continue
-
-                a_ctx = AttackContext(
-                    stat=stat,
-                    magic_bonus=magic_bonus_used,
-                    use_mastery=mastery_var_row.get(),
-                    two_handed=twohand_var_row.get(),
-                    damage_bonus=0,
-                    use_twf=twf_var_row.get(),
-                )
-                result = weapon_obj.expected_damage(boss_ac, a_ctx)
-                dpt = result.get(mode, 0)
-                total_dpt += dpt
-                _class_gui = getattr(type(weapon_obj), "gui_name", "")
-                weapon_label = weapon_obj.name if _class_gui == "_custom_" else (_class_gui or weapon_obj.name)
-                lines.append(f"{name} [{weapon_label}]: {dpt:.2f} dmg/turn")
-
-            if total_dpt <= 0:
-                lines.append("\nCannot estimate (no valid damage).")
-            else:
-                rounds_players = boss_hp / total_dpt
-                rounds_boss = party_hp / boss_damage
-                lines.append(f"\nTotal party DPT ({mode}): {total_dpt:.2f}")
-                lines.append(f"Boss HP: {boss_hp}")
-                lines.append(f"Estimated rounds to kill: {rounds_players:.1f}")
-                lines.append(f"Estimated in-game time:   ~{rounds_players * 6:.0f} seconds ({rounds_players / 10:.1f} min)")
-
-                lines.append(f"\nTotal boss DPT: {boss_damage:.2f}")
-                lines.append(f"Party HP: {party_hp}")
-                lines.append(f"Estimated rounds to kill: {rounds_boss:.1f}")
-                lines.append(f"Estimated in-game time:   ~{rounds_boss * 6:.0f} seconds ({rounds_boss / 10:.1f} min)")
-
-            result_text.delete("1.0", tk.END)
-            result_text.insert(tk.END, "\n".join(lines))
-
-        estimate_btn.config(command=estimate)
 
     def open_simulator_window(self):
         """Open the class-based Boss Fight Simulator window."""

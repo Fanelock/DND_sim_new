@@ -21,7 +21,7 @@ from typing import List, Optional
 class Combatant:
     """Generic combatant — used for both party members and enemies."""
 
-    def __init__(self, name, side, hp, ac, init_bonus,
+    def __init__(self, name, side, hp, ac, to_hit, init_bonus,
                  num_attacks, damage_per_attack, role="", label=""):
         """
         :param side: ``"party"`` or ``"enemy"``.
@@ -33,6 +33,7 @@ class Combatant:
         self.max_hp = int(hp)
         self.hp = int(hp)
         self.ac = int(ac)
+        self.to_hit = int(to_hit)
         self.init_bonus = int(init_bonus)
         self.num_attacks = max(0, int(num_attacks))
         self.damage_per_attack = float(damage_per_attack)
@@ -154,9 +155,7 @@ class EncounterSimulator:
         if not attacker.alive:
             return
         if attacker.num_attacks <= 0 or attacker.damage_per_attack <= 0:
-            self.log.append(
-                f"    {attacker.name} has no attacks to make."
-            )
+            self.log.append(f"    {attacker.name} has no attacks to make.")
             return
 
         for atk_idx in range(1, attacker.num_attacks + 1):
@@ -166,19 +165,49 @@ class EncounterSimulator:
                 target = self._pick_enemy_target()
 
             if target is None:
-                # Other side already wiped — no remaining target.
                 return
 
-            dmg = attacker.damage_per_attack
-            target.take_damage(dmg)
             label = f" [{attacker.label}]" if attacker.label else ""
-            self.log.append(
-                f"    {attacker.name}{label} attack {atk_idx}/{attacker.num_attacks} "
-                f"→ {target.name} takes {dmg:.2f} "
-                f"(HP {target.hp:.1f}/{target.max_hp})"
-            )
-            if not target.alive:
-                self.log.append(f"      ✗ {target.name} is down.")
+
+            # Enemy attacks: roll to hit against player AC
+            if attacker.side == "enemy":
+                roll = self.rng.randint(1, 20)
+                total_to_hit = roll + attacker.to_hit
+
+                if roll == 1:
+                    self.log.append(
+                        f"    {attacker.name}{label} attack {atk_idx}/{attacker.num_attacks} "
+                        f"targeting {target.name} → rolls 1 + {attacker.to_hit} = {total_to_hit} vs AC {target.ac}: MISS"
+                    )
+                    continue
+
+                if roll == 20 or total_to_hit >= target.ac:
+                    dmg = attacker.damage_per_attack
+                    target.take_damage(dmg)
+                    self.log.append(
+                        f"    {attacker.name}{label} attack {atk_idx}/{attacker.num_attacks} "
+                        f"targeting {target.name} → rolls {roll} + {attacker.to_hit} = {total_to_hit} vs AC {target.ac}: HIT "
+                        f"for {dmg:.2f} (HP {target.hp:.1f}/{target.max_hp})"
+                    )
+                    if not target.alive:
+                        self.log.append(f"      ✗ {target.name} is down.")
+                else:
+                    self.log.append(
+                        f"    {attacker.name}{label} attack {atk_idx}/{attacker.num_attacks} "
+                        f"targeting {target.name} → rolls {roll} + {attacker.to_hit} = {total_to_hit} vs AC {target.ac}: MISS"
+                    )
+
+            # Party attacks: keep deterministic expected damage
+            else:
+                dmg = attacker.damage_per_attack
+                target.take_damage(dmg)
+                self.log.append(
+                    f"    {attacker.name}{label} attack {atk_idx}/{attacker.num_attacks} "
+                    f"targeting {target.name} → takes {dmg:.2f} "
+                    f"(HP {target.hp:.1f}/{target.max_hp})"
+                )
+                if not target.alive:
+                    self.log.append(f"      ✗ {target.name} is down.")
 
     def _sides_alive(self):
         return bool(self._living(self.party)) and bool(self._living(self.enemies))
