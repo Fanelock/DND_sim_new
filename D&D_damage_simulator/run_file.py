@@ -9,7 +9,7 @@ import importlib
 import sys
 import pathlib
 
-from boss_simulator_gui import open_simulator_window
+from boss_simulator_gui import BossSimulatorGUI
 
 # When running as a PyInstaller .exe, sys._MEIPASS contains the extracted
 # bundle directory. We add it to sys.path so that package imports such as
@@ -1337,7 +1337,8 @@ class MinimalDNDGUI:
         estimate_btn.config(command=estimate)
 
     def open_simulator_window(self):
-        open_simulator_window(self)
+        """Open the class-based Boss Fight Simulator window."""
+        BossSimulatorGUI(self)
 
 def main():
     root = tk.Tk()
