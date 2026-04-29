@@ -71,7 +71,7 @@ class BossSimulatorGUI:
     # ------------------------------------------------------------------
     def _build_ui(self):
         self.win = tk.Toplevel(self.master)
-        self.win.title("Boss Fight Simulator")
+        self.win.title("Combat Simulator")
         self.win.geometry("800x700+725+50")
 
         spell_choices = ["None"] + sorted(self.spell_mapping.keys())
@@ -150,7 +150,7 @@ class BossSimulatorGUI:
         for col, minsize in enemy_col_widths.items():
             enemy_header_frame.grid_columnconfigure(col, minsize=minsize)
 
-        headers = ["In", "Name", "Role", "HP", "AC", "To hit", "Atks", "Dmg/Atk", "Init+", ""]
+        headers = ["In", "Name", "Role", "HP", "AC", "To hit", "Atks", "Dmg/Atk", "Initiative", ""]
         for col, text in enumerate(headers):
             tk.Label(
                 enemy_header_frame,
@@ -446,7 +446,7 @@ class BossSimulatorGUI:
         except ValueError:
             messagebox.showerror(
                 "Error",
-                "Enemy HP, AC, To Hit, Atks, Dmg/Atk and Init+ must all be valid numbers.",
+                "Enemy HP, AC, To Hit, Atks, Dmg/Atk and Init bonus must all be valid numbers.",
                 parent=self.win,
             )
             return
@@ -620,13 +620,13 @@ class BossSimulatorGUI:
         lines.append("--- Party ---")
         for c in party_combatants:
             lines.append(
-                f"  {c.name} [{c.label}]: HP={c.hp}, AC={c.ac}, init+={c.init_bonus}, "
+                f"  {c.name} [{c.label}]: HP = {c.hp}, AC = {c.ac}, Initiative = +{c.init_bonus}, "
                 f"{c.num_attacks} atk × {c.damage_per_attack:.2f} dmg"
             )
         lines.append("--- Enemies ---")
         for c in enemy_combatants:
             lines.append(
-                f"  {c.name} ({c.role}): HP={c.hp}, AC={c.ac}, init+={c.init_bonus}, "
+                f"  {c.name} ({c.role}): HP = {c.hp}, AC = {c.ac}, Initiative = +{c.init_bonus}, "
                 f"{c.num_attacks} atk × {c.damage_per_attack:.2f} dmg"
             )
         lines.append("")

@@ -224,8 +224,8 @@ class EncounterSimulator:
         for c in order:
             self.log.append(
                 f"  {c.initiative:>3}  {c.name} ({c.side}, "
-                f"HP={c.hp}, AC={c.ac}, atks={c.num_attacks}, "
-                f"dpa={c.damage_per_attack:.2f})"
+                f"HP = {c.hp}, AC = {c.ac}, atks = {c.num_attacks}, "
+                f"dpa = {c.damage_per_attack:.2f})"
             )
 
         # Step through rounds.
