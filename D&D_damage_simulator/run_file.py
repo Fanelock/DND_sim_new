@@ -11,6 +11,8 @@ import pathlib
 
 from boss_simulator_gui import BossSimulatorGUI
 from character_window import CharacterWindow
+from dndbeyond_import import import_from_url
+
 
 # When running as a PyInstaller .exe, sys._MEIPASS contains the extracted
 # bundle directory. We add it to sys.path so that package imports such as
@@ -196,6 +198,7 @@ class MinimalDNDGUI:
         tk.Button(top_frame, text="Delete Selected", command=self.delete_selected).pack(side="left", padx=6)
         tk.Button(top_frame, text="Import (JSON)", command=self.import_json).pack(side="left", padx=6)
         tk.Button(top_frame, text="Export (JSON)", command=self.export_json).pack(side="left", padx=6)
+        tk.Button(top_frame, text="Import D&DBeyond", command=self.open_dndb_import).pack(side="left", padx=6)
 
         # Character list box
         char_frame = tk.LabelFrame(master, text="Saved Characters")
@@ -391,6 +394,73 @@ class MinimalDNDGUI:
             messagebox.showinfo("Exported", f"Exported to {path}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to export: {e}")
+
+    def open_dndb_import(self):
+        """Pop-up: paste a D&D Beyond share link → pre-fill character edit window."""
+        import tkinter as tk
+        from tkinter import messagebox
+
+        popup = tk.Toplevel(self.master)
+        popup.title("Import from D&D Beyond")
+        popup.geometry("480x140")
+        popup.resizable(False, False)
+
+        tk.Label(popup, text="Paste D&D Beyond character URL or ID:").pack(
+            anchor="w", padx=12, pady=(12, 2)
+        )
+
+        url_var = tk.StringVar()
+        entry = tk.Entry(popup, textvariable=url_var, width=58)
+        entry.pack(padx=12, pady=4)
+        entry.focus_set()
+
+        status_var = tk.StringVar(value="")
+        status_lbl = tk.Label(popup, textvariable=status_var, fg="red")
+        status_lbl.pack(padx=12)
+
+        def do_import():
+            raw = url_var.get().strip()
+            if not raw:
+                status_var.set("Please enter a URL or character ID.")
+                return
+            status_var.set("Fetching…")
+            popup.update_idletasks()
+            try:
+                char_dict = import_from_url(raw)
+            except ValueError as exc:
+                status_var.set(str(exc))
+                return
+
+            name = char_dict["name"]
+
+            # If a character with this name already exists, ask before overwriting
+            if name in self.characters:
+                if not messagebox.askyesno(
+                        "Overwrite?",
+                        f'A character named "{name}" already exists.\nOverwrite it?',
+                        parent=popup,
+                ):
+                    return
+
+            # Store in memory + open the edit window so the DM can add a weapon
+            self.characters[name] = char_dict
+            self.save_characters_to_file()
+            self.refresh_character_listbox(reselect=name)
+            popup.destroy()
+
+            # Open the edit window pre-filled so the DM can attach a custom weapon
+            self.open_character_window(is_edit=True, existing_name=name)
+
+        btn_frame = tk.Frame(popup)
+        btn_frame.pack(pady=6)
+        tk.Button(btn_frame, text="Import", command=do_import, width=12).pack(
+            side="left", padx=6
+        )
+        tk.Button(btn_frame, text="Cancel", command=popup.destroy, width=12).pack(
+            side="left", padx=6
+        )
+
+        popup.bind("<Return>", lambda _:do_import())
 
     def run_expected_damage(self):
         sel = self.character_listbox.curselection()
