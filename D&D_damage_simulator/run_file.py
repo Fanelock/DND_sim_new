@@ -157,7 +157,7 @@ class MinimalDNDGUI:
     def __init__(self, master):
         self.master = master
         self.master.title("DND Combat Calculator")
-        self.master.geometry("655x645+50+50")
+        self.master.geometry("655x645+25+25")
 
         self.weapon_mapping = build_weapon_mapping()
 
