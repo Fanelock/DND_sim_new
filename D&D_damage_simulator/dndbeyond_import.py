@@ -193,8 +193,8 @@ def parse_character(raw_json: dict) -> dict:
                 all_mods.extend(group_mods)
 
     for mod in all_mods:
-        mtype = (mod.get("type") or "").lower()
-        sub = (mod.get("subType") or "").lower()
+        mtype = (mod.get("type") or "")
+        sub = (mod.get("subType") or "").lower().replace("-score", "")
         if sub not in stat_id_map:
             continue
         sid = stat_id_map[sub]
@@ -290,16 +290,29 @@ def parse_character(raw_json: dict) -> dict:
             computed_ac = base_ac + dex_mod + ac_bonus
 
     # ── initiative ─────────────────────────────────────────────────────────
+
+    def _mod_value_with_stat(mod: dict, scores: dict) -> int:
+        """Like _mod_value, but also resolves statId-based bonuses."""
+        for key in ("value", "fixedValue"):
+            v = mod.get(key)
+            if isinstance(v, (int, float)):
+                return int(v)
+        # statId: 1=STR 2=DEX 3=CON 4=INT 5=WIS 6=CHA
+        stat_id = mod.get("statId")
+        if stat_id and stat_id in scores:
+            return _stat_to_mod(scores[stat_id])
+        return 0
     # Per spec: if initiative_total == dex_mod, the field stays at 0
     # (i.e. "leave empty"). If feats/items add extra to initiative, that
     # delta is written into init_bonus.
     init_extra = 0
     for mod in all_mods:
-        sub = (mod.get("subType") or "").lower()
-        if sub == "initiative":
-            init_extra += _mod_value(mod)
+        sub = (mod.get("subType") or "").lower().replace("-score", "")
+        mtype = (mod.get("type") or "").lower()
+        if sub == "initiative" and mtype == "bonus":
+            init_extra += _mod_value_with_stat(mod, scores)
 
-    init_bonus = init_extra  # 0 when initiative == dex_mod
+    init_bonus = init_extra + dex_mod  # 0 when initiative == dex_mod
 
     # ── main_stat: pick a sensible default from the dominant class ─────────
     main_stat = CLASS_MAIN_STAT.get(class_name.lower(), "str")
@@ -318,7 +331,7 @@ def parse_character(raw_json: dict) -> dict:
         "cha":                   cha_mod,
         "HP":                    int(max_hp),
         "AC":                    int(computed_ac),
-        "init_bonus":            int(init_bonus),
+        "initiative":            int(init_bonus),
         "main_stat":             main_stat,
         "modifiers":             [],
         "standard_weapon":       "",

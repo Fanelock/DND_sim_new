@@ -123,10 +123,10 @@ class CharacterWindow:
         AC_entry = tk.Entry(inner, width=6)
         AC_entry.insert(0, "10")
         AC_entry.grid(row=7, column=1, sticky="w", padx=8, pady=2)
-        tk.Label(inner, text="Init-bonus:").grid(row=7, column=2, sticky="w", padx=8, pady=2)
-        init_bonus_entry = tk.Entry(inner, width=6)
-        init_bonus_entry.insert(0, "0")
-        init_bonus_entry.grid(row=7, column=3, sticky="w", padx=8, pady=2)
+        tk.Label(inner, text="Initiative:").grid(row=7, column=2, sticky="w", padx=8, pady=2)
+        initiative_entry = tk.Entry(inner, width=6)
+        initiative_entry.insert(0, "0")
+        initiative_entry.grid(row=7, column=3, sticky="w", padx=8, pady=2)
 
         # Row 8: Custom Weapon section
         sep = tk.LabelFrame(inner, text="Custom Weapon (overrides Standard Weapon if filled)")
@@ -243,8 +243,8 @@ class CharacterWindow:
             HP_entry.insert(0, str(data.get("HP", 0)))
             AC_entry.delete(0, tk.END)
             AC_entry.insert(0, str(data.get("AC", 10)))
-            init_bonus_entry.delete(0, tk.END)
-            init_bonus_entry.insert(0, str(data.get("init_bonus", 0)))
+            initiative_entry.delete(0, tk.END)
+            initiative_entry.insert(0, str(data.get("initiative", 0)))
 
             # Restore custom weapon
             cw = data.get("custom_weapon", {})
@@ -287,7 +287,7 @@ class CharacterWindow:
                 stdb = int(standard_weapon_bonus_entry.get().strip() or "0")
                 hp = int(HP_entry.get().strip())
                 ac = int(AC_entry.get().strip() or "10")
-                init_bonus = int(init_bonus_entry.get().strip() or "0")
+                initiative = int(initiative_entry.get().strip() or "0")
             except ValueError:
                 messagebox.showerror("Error", "STR/DEX/CHA/HP/AC/Init etc must be integers.")
                 return
@@ -354,7 +354,7 @@ class CharacterWindow:
                 "main_stat": main_stat_var.get(),
                 "HP": hp,
                 "AC": ac,
-                "init_bonus": init_bonus,
+                "initiative": initiative,
                 "custom_weapon": custom_weapon_data,
                 "custom_modifiers": custom_mods_data,
             }

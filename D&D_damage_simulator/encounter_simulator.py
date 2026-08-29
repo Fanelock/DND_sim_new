@@ -21,7 +21,7 @@ from typing import List, Optional
 class Combatant:
     """Generic combatant — used for both party members and enemies."""
 
-    def __init__(self, name, side, hp, ac, to_hit, init_bonus,
+    def __init__(self, name, side, hp, ac, to_hit, initiative,
                  num_attacks, damage_per_attack, role="", label=""):
         """
         :param side: ``"party"`` or ``"enemy"``.
@@ -34,12 +34,12 @@ class Combatant:
         self.hp = int(hp)
         self.ac = int(ac)
         self.to_hit = int(to_hit)
-        self.init_bonus = int(init_bonus)
+        self.initiative = int(initiative)
         self.num_attacks = max(0, int(num_attacks))
         self.damage_per_attack = float(damage_per_attack)
         self.role = role
         self.label = label
-        self.initiative = 0  # set by EncounterSimulator.roll_initiative()
+        self.init = 0  # set by EncounterSimulator.roll_initiative()
 
     @property
     def alive(self):
@@ -99,15 +99,15 @@ class EncounterSimulator:
         """Roll 1d20 + init_bonus for every combatant. Tie-break randomly."""
         for c in self.party + self.enemies:
             roll = self.rng.randint(1, 20)
-            c.initiative = roll + c.init_bonus
+            c.init = roll + c.initiative
             self.log.append(
-                f"  {c.name} ({c.side}) rolls {roll} + {c.init_bonus} = {c.initiative}"
+                f"  {c.name} ({c.side}) rolls {roll} + {c.initiative} = {c.init}"
             )
 
         # Sort: highest initiative first; random tie-break.
         order = self.party + self.enemies
         order.sort(
-            key=lambda c: (c.initiative, self.rng.random()),
+            key=lambda c: (c.init, self.rng.random()),
             reverse=True,
         )
         return order
@@ -223,7 +223,7 @@ class EncounterSimulator:
         self.log.append("\n=== Turn order ===")
         for c in order:
             self.log.append(
-                f"  {c.initiative:>3}  {c.name} ({c.side}, "
+                f"  {c.init:>3}  {c.name} ({c.side}, "
                 f"HP = {c.hp}, AC = {c.ac}, atks = {c.num_attacks}, "
                 f"dpa = {c.damage_per_attack:.2f})"
             )

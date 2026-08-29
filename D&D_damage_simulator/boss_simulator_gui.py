@@ -576,7 +576,7 @@ class BossSimulatorGUI:
                     side="enemy",
                     hp=int(hp_str),
                     ac=int(ac_str),
-                    init_bonus=int(init_str) if init_str.strip() else 0,
+                    initiative=int(init_str) if init_str.strip() else 0,
                     to_hit=int(to_hit_str) if to_hit_str.strip() else 2,
                     num_attacks=int(atk_str) if atk_str.strip() else 1,
                     damage_per_attack=float(dmg_str),
@@ -602,7 +602,7 @@ class BossSimulatorGUI:
             char_hp = int(char_data.get("HP", 0))
             char_dex = int(char_data.get("dex", 0))
             char_ac = int(char_data.get("AC", 10))
-            char_init_bonus = int(char_data.get("init_bonus", 0))
+            char_initiative = int(char_data.get("initiative", 0))
 
             char_obj = Character(
                 lvl=char_data.get("lvl", 0),
@@ -706,7 +706,7 @@ class BossSimulatorGUI:
                 hp=char_hp,
                 ac=char_ac,
                 to_hit=0,
-                init_bonus=char_dex + char_init_bonus,
+                initiative= char_initiative,
                 num_attacks=num_attacks,
                 damage_per_attack=damage_per_attack,
                 label=label,
@@ -739,13 +739,13 @@ class BossSimulatorGUI:
         lines.append("--- Party ---")
         for c in party_combatants:
             lines.append(
-                f"  {c.name} [{c.label}]: HP = {c.hp}, AC = {c.ac}, Initiative = +{c.init_bonus}, "
+                f"  {c.name} [{c.label}]: HP = {c.hp}, AC = {c.ac}, Initiative = +{c.initiative}, "
                 f"{c.num_attacks} atk × {c.damage_per_attack:.2f} dmg"
             )
         lines.append("--- Enemies ---")
         for c in enemy_combatants:
             lines.append(
-                f"  {c.name} ({c.role}): HP = {c.hp}, AC = {c.ac}, Initiative = +{c.init_bonus}, "
+                f"  {c.name} ({c.role}): HP = {c.hp}, AC = {c.ac}, Initiative = +{c.initiative}, "
                 f"{c.num_attacks} atk × {c.damage_per_attack:.2f} dmg"
             )
         lines.append("")
